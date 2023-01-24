@@ -1,6 +1,6 @@
 dir=$1
 find $dir -name "*.py"|while read file
-do echo"File:$file"
+do echo "File:$file"
 awk '{if($0~/.*#.*/)
         {if($0!~/^[[:blank:]]*#/)
             {gsub(/[^#]+#/,"#",$0)
@@ -16,6 +16,7 @@ awk '{if($0~/.*#.*/)
             print"",NR,$0
             gsub(/\"\"\"+.*/,"\"\"\"",$0)
             print"End_of_multiline_comment_at_line_",NR}}
+    
     if(multi_line==1){print"",NR,$0}
       }' $file
 done
