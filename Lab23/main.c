@@ -1,7 +1,15 @@
 #include "main.h"
 
 void printPrompt() {
+    printf("\033[0;35m");
     printf("wish -> ");
+    printf("\033[0m"); 
+}
+
+void exitMessage() {
+    printf("\033[0;36m");
+    printf("Wish is leaving. Have a nice day!\n");
+    printf("\033[0m"); 
 }
 
 int main(int argc, char **argv) {
@@ -23,10 +31,12 @@ int main(int argc, char **argv) {
 
         printf("You typed: %s", input);
 
-        if(strcmp(input, "exit\n") == 0) break;
+        if(strcmp(input, "clear\n") == 0) system("clear");
+
+        else if(strcmp(input, "exit\n") == 0) break;
     }
 
-    printf("Wish is leaving. Have a nice day!\n");
+    exitMessage();
 
     return 0;
 }
