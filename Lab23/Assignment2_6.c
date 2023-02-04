@@ -1,7 +1,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include "util.c"
+#include "utils.c"
 #include <fcntl.h>
 #include<unistd.h>
 #include<sys/wait.h>
