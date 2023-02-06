@@ -204,9 +204,69 @@ void redirect(char * inp, char * out)
     }
 }
 
+int get_parent_pid(int pid) {
+  char proc_path[1024];
+  snprintf(proc_path, 1024, "/proc/%d/status", pid);
+  FILE *f = fopen(proc_path, "r");
+  if (f == NULL) {
+      printf("-1, /proc/%d/status does not exist\n", pid);
+    return -1;
+  }
+  int ppid = -1;
+  char line[1024];
+  while (fgets(line, 1024, f) != NULL) {
+    if (strncmp(line, "PPid:", 5) == 0) {
+      ppid = atoi(line + 5);
+      break;
+    }
+  }
+  fclose(f);
+//   printf("%d", ppid);
+  return ppid;
+}
+
+void getparent(int pid) {
+    int parent_pid = get_parent_pid(pid);
+    printf("Process ID: %d, Parent Process ID: %d\n", pid, parent_pid);
+    get_process_info(pid);
+    printf("\n");
+    if (parent_pid != 1) {
+        getparent(parent_pid);
+    }
+}
+
+
+void squash_bug(char* cmd){
+    // syntax -- sb then number then flag
+    int given_process_id = 0;
+    int cnt = 3;
+    int len = strlen(cmd);
+    while (cnt<len){
+        if(cmd[cnt] >= '0' && cmd[cnt] <= '9'){
+            given_process_id *= 10;
+            given_process_id += (int)(cmd[cnt] - '0');
+        }
+        else{
+            break;
+        }
+        cnt++;
+    }
+
+    printf("%d\n",given_process_id );
+    getparent(given_process_id);
+    
+}
+
+
 // Execute the commands
 void execCmd(char *cmd)
 {
+    // check fot the sb in front 
+    if(cmd[0] == 's' && cmd[1] =='b' && cmd[2] == ' '){
+        printf("you ran sb\n");
+        squash_bug(cmd);
+        return;
+    }
     // Split the command and its arguments
     vector args;
     vector_init(&args);
