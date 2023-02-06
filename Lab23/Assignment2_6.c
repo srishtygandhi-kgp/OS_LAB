@@ -1,7 +1,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include "util.c"
+#include "utils.c"
 #include <fcntl.h>
 #include<unistd.h>
 #include<sys/wait.h>
@@ -243,6 +243,16 @@ void runcmd(char* cmd, int* status_){
         vector parsed;
         vector_init(&parsed);
         parsed = splitInputOuput(vector_get(&cmds,0));
+
+        vector temp = split(vector_get(&parsed,0), ' ');
+
+        if(strcmp(vector_get(&temp,0), "cd") == 0) {
+            if(vector_total(&temp)==1)
+                chdir(getenv("HOME"));
+            else
+                chdir(vector_get(&temp,1));
+            return;
+        }
             
         pid_t pid = fork();
         if(pid == 0)
@@ -324,6 +334,5 @@ int main()
         strcpy(cmd,inp);
 
         runcmd(cmd,&status);
-        
     }
 }
