@@ -4,6 +4,7 @@
 #include "utils.c"
 #include <fcntl.h>
 #include<unistd.h>
+#include <glob.h>
 #include<sys/wait.h>
 
 char* ltrim(char* s) {
@@ -23,6 +24,14 @@ char * rtrim(char * s) {
     }
     s[len] = '\0';
     return s;
+}
+
+// function to check if given char is a wildcard char
+int is_wildcard_char(char ch)
+{
+    if (ch == '*' || ch == '?')
+        return 1;
+    return 0;
 }
 
 // Split the string into several ones by the delimiter
@@ -196,7 +205,7 @@ void redirect(char * inp, char * out)
 }
 
 // Execute the commands
-void execCmd(char* cmd)
+void execCmd(char *cmd)
 {
     // Split the command and its arguments
     vector args;
@@ -204,22 +213,72 @@ void execCmd(char* cmd)
 
     vector te;
     vector_init(&te);
-    te = split(cmd,' ');
-    for(int i = 0; i < vector_total(&te); i++){
-        if(strlen(vector_get(&te,i)))
-            vector_add(&args, vector_get(&te,i));
+    te = split(cmd, ' ');
+
+    for (int i = 0; i < vector_total(&te); i++)
+    {
+        if (strlen(vector_get(&te, i)))
+            vector_add(&args, vector_get(&te, i));
     }
 
-
     // Create a char* array for the arguments
-    char* argv[vector_total(&args)+1];
+    int initial_size = vector_total(&args) + 1;
+    char **argv = (char **)calloc(initial_size, sizeof(char *));
+    int cnt = 0;
 
-    for(int i=0 ; i<vector_total(&args) ; i++)
-        argv[i] = vector_get(&args,i); // Convert string to char *
-    argv[vector_total(&args)] = NULL; // Terminate with NULL pointer
+    for (int i = 0; i < vector_total(&args); i++)
+    {
+        char *arg_to_check = vector_get(&args, i); // Convert string to char *
+        int flag = 0; // flag to check if argument contains a wildcard char
+        for (int j = 0; j < strlen(arg_to_check); j++)
+        {
+            if(arg_to_check[j] == '"'){
+                while(j < strlen(arg_to_check) && arg_to_check[j] != '"')
+                {
+                    j++;
+                }
+            }
+            if (is_wildcard_char(arg_to_check[j]))
+            {
+                flag = 1;
+            }
+        }
+        // if wildcard entry is present add the arguments
+        if (flag)
+        {
+            char **arg_found;
+            glob_t gstruct;
+            int ret = glob(arg_to_check, GLOB_ERR, NULL, &gstruct);
+            if (ret != 0)
+            {
+                if (ret == GLOB_NOMATCH)
+                    fprintf(stderr, "No matches found!\n");
+                else
+                    fprintf(stderr, "glob error\n");
+            }
 
-    char* const* argv1 = argv; // Assign it to a constant array
-    execvp(vector_get(&args,0),argv1); // Call the execvp command
+            // store the filenames in argv
+            int reallocate_size = (int)gstruct.gl_pathc +1;
+            argv = realloc(argv, reallocate_size);
+            arg_found = gstruct.gl_pathv;
+            while (*arg_found)
+            {
+                argv[cnt] = *arg_found;
+                cnt++;
+                arg_found++;            
+
+            }
+        }
+        else
+        {
+            argv[cnt] = arg_to_check;
+            cnt++;
+        }
+    }
+    argv[cnt] = NULL; // Terminate with NULL pointer
+
+    char *const *argv1 = argv;           // Assign it to a constant array
+    execvp(vector_get(&args, 0), argv1); // Call the execvp command
 }
 
 // check for pipes, and background processes('&' at the end of string) and then execute them line by line
