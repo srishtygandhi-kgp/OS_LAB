@@ -225,10 +225,34 @@ int get_parent_pid(int pid) {
   return ppid;
 }
 
+void read_stat_file(int pid){
+    char proc_path[1024];
+    snprintf(proc_path, 1024, "/proc/%d/stat", pid);
+    FILE *f = fopen(proc_path, "r");
+    if (f == NULL) {
+        printf("-1, /proc/%d/stat does not exist\n", pid);
+        return ;
+    }
+    int ppid = -1;
+    char line[2048];
+    vector fields;
+    vector_init(&fields);
+    if(fgets(line, 2048, f) != NULL) {
+       fields = split(line, ' '); 
+    }
+
+    printf("ppid -- %s", (char*)vector_get(&fields, 22));
+    for(int i = 0; i < vector_total(&fields); i++){
+        printf("%s ", (char*)vector_get(&fields,i));
+    }
+    fclose(f);
+}
+
 void getparent(int pid) {
     int parent_pid = get_parent_pid(pid);
     printf("Process ID: %d, Parent Process ID: %d\n", pid, parent_pid);
-    get_process_info(pid);
+    // get_process_info(pid);
+    read_stat_file(pid);
     printf("\n");
     if (parent_pid != 1) {
         getparent(parent_pid);
