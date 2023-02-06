@@ -1,7 +1,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include "utils.c"
+#include "util.c"
 #include <fcntl.h>
 #include<unistd.h>
 #include<sys/wait.h>
@@ -222,6 +222,89 @@ void execCmd(char* cmd)
     execvp(vector_get(&args,0),argv1); // Call the execvp command
 }
 
+// check for pipes, and background processes('&' at the end of string) and then execute them line by line
+void runcmd(char* cmd, int* status_){
+    int status = *status_;
+    int bg = 0; // flag for background running
+    // Check for background run
+    cmd = rtrim(ltrim(cmd));
+    if( cmd[strlen(cmd)-1] == '&')
+        bg = 1, cmd[strlen(cmd) -1] = ' ';
+
+        // Split into several commands wrt to |
+    vector cmds;
+    vector_init(&cmds);
+    cmds = split(cmd, '|');
+
+    // If no pipes are required
+    if(vector_total(&cmds)==1)
+    {
+        // Split the commands and redirection
+        vector parsed;
+        vector_init(&parsed);
+        parsed = splitInputOuput(vector_get(&cmds,0));
+            
+        pid_t pid = fork();
+        if(pid == 0)
+        {
+            redirect(vector_get(&parsed,1),vector_get(&parsed,2));
+            execCmd(vector_get(&parsed,0));
+            exit(0); // Exit the child process
+        }
+
+        if(!bg)
+            wait(&status);
+    }
+
+    else
+    {
+        int n=vector_total(&cmds); // No. of pipe commands
+        int newFD[2], oldFD[2];
+
+        for(int i=0; i<n; i++)
+        {
+            vector parsed;
+            vector_init(&parsed);
+            parsed = splitInputOuput(vector_get(&cmds,i));
+            if(i!=n-1)                   // Create new pipe except for the last command
+                pipe(newFD);
+                
+            pid_t pid = fork();          // Fork for every command
+
+            // In the child process
+            if(pid == 0)
+            {
+                if( !i || i==n-1)
+                    redirect(vector_get(&parsed,1), vector_get(&parsed,2));  // For the first and last command redirect the input output files
+
+                // Read from previous command for everything except the first command
+                if(i)
+                    dup2(oldFD[0],0), close(oldFD[0]), close(oldFD[1]);
+
+                // Write into pipe for everything except last command
+                if(i!=n-1)
+                    close(newFD[0]), dup2(newFD[1],1), close(newFD[1]);
+
+                // Execute command
+                execCmd(vector_get(&parsed,0));
+            }
+
+            // In parent process
+            if(i)
+                close(oldFD[0]), close(oldFD[1]);
+                
+            // Copy newFD into oldFD for everything except the last process
+            if(i!=n-1)
+                oldFD[0] = newFD[0], oldFD[1] = newFD[1];
+        }
+
+        // If no background, then wait for all child processes to return
+        if(!bg)
+            while( wait(&status) > 0);
+    }
+}
+
+
 int main()
 {
     
@@ -231,7 +314,6 @@ int main()
 
     while(1)
     {
-        int bg = 0; // flag for background running
 
         // Get input command
         printf("COMMAND> ");
@@ -240,81 +322,8 @@ int main()
         // printf("%s",inp);
         // printf("%d",strlen(inp));
         strcpy(cmd,inp);
-        // Check for background run
-        cmd = rtrim(ltrim(cmd));
-        if( cmd[strlen(cmd)-1] == '&')
-            bg = 1, cmd[strlen(cmd) -1] = ' ';
 
-        // Split into several commands wrt to |
-        vector cmds;
-        vector_init(&cmds);
-        cmds = split(cmd, '|');
-
-        // If no pipes are required
-        if(vector_total(&cmds)==1)
-        {
-            // Split the commands and redirection
-            vector parsed;
-            vector_init(&parsed);
-            parsed = splitInputOuput(vector_get(&cmds,0));
-            
-            pid_t pid = fork();
-            if(pid == 0)
-            {
-                redirect(vector_get(&parsed,1),vector_get(&parsed,2));
-                execCmd(vector_get(&parsed,0));
-                exit(0); // Exit the child process
-            }
-
-            if(!bg)
-                wait(&status);
-        }
-
-        else
-        {
-            int n=vector_total(&cmds); // No. of pipe commands
-            int newFD[2], oldFD[2];
-
-            for(int i=0; i<n; i++)
-            {
-                vector parsed;
-                vector_init(&parsed);
-                parsed = splitInputOuput(vector_get(&cmds,i));
-                if(i!=n-1)                   // Create new pipe except for the last command
-                    pipe(newFD);
-                
-                pid_t pid = fork();          // Fork for every command
-
-                // In the child process
-                if(pid == 0)
-                {
-                    if( !i || i==n-1)
-                        redirect(vector_get(&parsed,1), vector_get(&parsed,2));  // For the first and last command redirect the input output files
-
-                    // Read from previous command for everything except the first command
-                    if(i)
-                        dup2(oldFD[0],0), close(oldFD[0]), close(oldFD[1]);
-
-                    // Write into pipe for everything except last command
-                    if(i!=n-1)
-                        close(newFD[0]), dup2(newFD[1],1), close(newFD[1]);
-
-                    // Execute command
-                    execCmd(vector_get(&parsed,0));
-                }
-
-                // In parent process
-                if(i)
-                    close(oldFD[0]), close(oldFD[1]);
-                
-                // Copy newFD into oldFD for everything except the last process
-                if(i!=n-1)
-                    oldFD[0] = newFD[0], oldFD[1] = newFD[1];
-            }
-
-            // If no background, then wait for all child processes to return
-            if(!bg)
-                while( wait(&status) > 0);
-        }
+        runcmd(cmd,&status);
+        
     }
 }
