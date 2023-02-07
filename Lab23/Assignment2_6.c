@@ -308,7 +308,7 @@ void execCmd(char *cmd)
     // Create a char* array for the arguments
     int initial_size = vector_total(&args) + 1;
     char **argv = (char **)calloc(initial_size, sizeof(char *));
-    int cnt = 0;
+    int cnt = 0, new_size = initial_size;
 
     for (int i = 0; i < vector_total(&args); i++)
     {
@@ -336,14 +336,14 @@ void execCmd(char *cmd)
             if (ret != 0)
             {
                 if (ret == GLOB_NOMATCH)
-                    fprintf(stderr, "No matches found!\n");
+                    printf("No matches found!\n");
                 else
-                    fprintf(stderr, "glob error\n");
+                    printf("glob error\n");
             }
 
             // store the filenames in argv
-            int reallocate_size = (int)gstruct.gl_pathc +1;
-            argv = realloc(argv, reallocate_size);
+            int new_size = new_size + (int)gstruct.gl_pathc +1;
+            argv = realloc(argv, new_size);
             arg_found = gstruct.gl_pathv;
             while (*arg_found)
             {
@@ -386,14 +386,28 @@ void runcmd(char* cmd, int* status_){
         vector parsed;
         vector_init(&parsed);
         parsed = splitInputOuput(vector_get(&cmds,0));
-
+        // store destination string before splitting to avoid splitting paths containing space
+        char *dest_dir = vector_get(&parsed,0); 
         vector temp = split(vector_get(&parsed,0), ' ');
 
         if(strcmp(vector_get(&temp,0), "cd") == 0) {
             if(vector_total(&temp)==1)
                 chdir(getenv("HOME"));
-            else
-                chdir(vector_get(&temp,1));
+            else {
+                char dirPath[strlen(dest_dir)];  // dirPath to store path directory for cd
+                memset(&dirPath, '\0', sizeof(dirPath));
+                int c = 0;
+                for (int j = 3; j < strlen(dest_dir); j++)
+                {   
+                    if(dest_dir[j] == '"') continue;
+                    // copy the char after \ as it is to dirPath
+                    if(dest_dir[j] == '\\')
+                      dirPath[c++]=dest_dir[++j];
+                    else dirPath[c++] = dest_dir[j];
+                }
+                dirPath[c]='\0';
+                chdir(dirPath);
+            }
             return;
         }
             
