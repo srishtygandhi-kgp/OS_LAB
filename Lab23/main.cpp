@@ -1,11 +1,15 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include "utils.c"
+#include <stdlib.h>
 #include <fcntl.h>
-#include<unistd.h>
+#include <unistd.h>
 #include <glob.h>
-#include<sys/wait.h>
+#include <sys/wait.h>
+#include <ncurses.h>
+
+#include "utils.h"
+#include "curse.h"
 
 char* ltrim(char* s) {
     size_t len = strlen(s);
@@ -57,7 +61,8 @@ vector split(char* cmd, char delim)
             int len = tmp - start;
             char* result = (char*)malloc(len + 1);
             if (!result) {
-                printf("Error allocating memory\n");
+                printw("Error allocating memory\n");
+                //refresh();
                 exit(1);
             }
             memcpy(result, start, len);
@@ -72,7 +77,8 @@ vector split(char* cmd, char delim)
     int len = tmp - start;
     char* result = (char*)malloc(len + 1);
     if (!result) {
-        printf("Error allocating memory\n");
+        printw("Error allocating memory\n");
+        //refresh();
         exit(1);
     }
     memcpy(result, start, len);
@@ -180,13 +186,15 @@ void redirect(char * inp, char * out)
         inp_fd = open(inp,O_RDONLY);  // Open in read only mode
         if(inp_fd < 0)
         {
-            printf("Error opening input file\n");
+            printw("Error opening input file\n");
+            //refresh();
             exit(EXIT_FAILURE);
         }
         // Redirect input
         if( dup2(inp_fd,0) < 0 )
         {
-            printf("Input redirecting error");
+            printw("Input redirecting error");
+            //refresh();
             exit(EXIT_FAILURE);
         }
     }
@@ -198,7 +206,8 @@ void redirect(char * inp, char * out)
         // Redirect output
         if( dup2(out_fd,1) < 0 )
         {
-            printf("Output redirecting error\n");
+            printw("Output redirecting error\n");
+            //refresh();
             exit(EXIT_FAILURE);
         }
     }
@@ -209,7 +218,8 @@ int get_parent_pid(int pid) {
   snprintf(proc_path, 1024, "/proc/%d/status", pid);
   FILE *f = fopen(proc_path, "r");
   if (f == NULL) {
-      printf("-1, /proc/%d/status does not exist\n", pid);
+      printw("-1, /proc/%d/status does not exist\n", pid);
+      //refresh();
     return -1;
   }
   int ppid = -1;
@@ -221,7 +231,7 @@ int get_parent_pid(int pid) {
     }
   }
   fclose(f);
-//   printf("%d", ppid);
+//   printw("%d", ppid);
   return ppid;
 }
 
@@ -230,7 +240,8 @@ void read_stat_file(int pid){
     snprintf(proc_path, 1024, "/proc/%d/stat", pid);
     FILE *f = fopen(proc_path, "r");
     if (f == NULL) {
-        printf("-1, /proc/%d/stat does not exist\n", pid);
+        printw("-1, /proc/%d/stat does not exist\n", pid);
+        //refresh();
         return ;
     }
     int ppid = -1;
@@ -241,19 +252,22 @@ void read_stat_file(int pid){
        fields = split(line, ' '); 
     }
 
-    printf("ppid -- %s", (char*)vector_get(&fields, 22));
+    printw("ppid -- %s", (char*)vector_get(&fields, 22));
+    //refresh();
     for(int i = 0; i < vector_total(&fields); i++){
-        printf("%s ", (char*)vector_get(&fields,i));
+        printw("%s ", (char*)vector_get(&fields,i));
+        //refresh();
     }
     fclose(f);
 }
 
 void getparent(int pid) {
     int parent_pid = get_parent_pid(pid);
-    printf("Process ID: %d, Parent Process ID: %d\n", pid, parent_pid);
+    printw("Process ID: %d, Parent Process ID: %d\n", pid, parent_pid);
     // get_process_info(pid);
     read_stat_file(pid);
-    printf("\n");
+    printw("\n");
+    //refresh();
     if (parent_pid != 1) {
         getparent(parent_pid);
     }
@@ -276,7 +290,8 @@ void squash_bug(char* cmd){
         cnt++;
     }
 
-    printf("%d\n",given_process_id );
+    printw("%d\n",given_process_id );
+    //refresh();
     getparent(given_process_id);
     
 }
@@ -287,7 +302,8 @@ void execCmd(char *cmd)
 {
     // check fot the sb in front 
     if(cmd[0] == 's' && cmd[1] =='b' && cmd[2] == ' '){
-        printf("you ran sb\n");
+        printw("you ran sb\n");
+        //refresh();
         squash_bug(cmd);
         return;
     }
@@ -335,15 +351,19 @@ void execCmd(char *cmd)
             int ret = glob(arg_to_check, GLOB_ERR, NULL, &gstruct);
             if (ret != 0)
             {
-                if (ret == GLOB_NOMATCH)
-                    printf("No matches found!\n");
-                else
-                    printf("glob error\n");
+                if (ret == GLOB_NOMATCH) {
+                    printw("No matches found!\n");
+                    //refresh();
+                }
+                else {
+                    printw("glob error\n");
+                    //refresh();
+                }
             }
 
             // store the filenames in argv
             int new_size = new_size + (int)gstruct.gl_pathc +1;
-            argv = realloc(argv, new_size);
+            argv = (char **)realloc(argv, new_size);
             arg_found = gstruct.gl_pathv;
             while (*arg_found)
             {
@@ -362,6 +382,7 @@ void execCmd(char *cmd)
     argv[cnt] = NULL; // Terminate with NULL pointer
 
     char *const *argv1 = argv;           // Assign it to a constant array
+
     execvp(vector_get(&args, 0), argv1); // Call the execvp command
 }
 
@@ -474,22 +495,42 @@ void runcmd(char* cmd, int* status_){
 
 int main()
 {
-    
-    char inp[200];
-    char* cmd = (char*)malloc(200);
+    int max_row, max_col;
+    char inp[CMD_SIZE];
+    char* cmd = (char*)malloc(CMD_SIZE*sizeof(char));
     int status = 0;
+    int mystdout, ogstdout, mystderr, ogstderr;
 
-    while(1)
-    {
+    NCURSES_SETUP(max_row, max_col);
 
-        // Get input command
-        printf("COMMAND> ");
-        // get the entire line
-        fgets(inp,200,stdin);
-        // printf("%s",inp);
-        // printf("%d",strlen(inp));
+    while ( TRUE ) {
+        print_prompt(); 
+        io_handler(inp);
         strcpy(cmd,inp);
 
+        ogstdout = dup(1);
+        mystdout = open("/tmp/temp_shell_output.txt", O_CREAT | O_WRONLY | O_TRUNC, 0600);
+        dup2(mystdout, 1) < 0;
+        close(mystdout);
+
+        ogstderr = dup(2);
+        mystderr = open("/tmp/temp_shell_err.txt", O_CREAT | O_WRONLY | O_TRUNC, 0600);
+        dup2(mystderr, 2) < 0;
+        close(mystderr);
+
         runcmd(cmd,&status);
+
+        dup2(ogstdout, 1) < 0;
+        close(ogstdout);
+
+        dup2(ogstderr, 2) < 0;
+        close(ogstderr);
+
+        print_file_to_curses("/tmp/temp_shell_output.txt");
+        print_file_to_curses("/tmp/temp_shell_err.txt");
+
+        for(int i = 0; i < CMD_SIZE; i++) inp[i] = '\0';
     }
+
+    return 0;
 }

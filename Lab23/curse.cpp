@@ -3,41 +3,25 @@
 #include <string.h>
 #include <unistd.h>
 
-//#include "terminal.h"
-
-#define CMD_SIZE 300
-#define BREAK_CHAR -1
-#define TOSTART -2
-#define TOEND -3
-#define LEFTARROW -4
-#define RIGHTARROW -5
-#define DEL -6
-#define BACKSPACE -7
-//#define CTRL_Z 26
-
-#define CTRL(X) ( #X[0] - 'a' + 1 )
-
-#define NCURSES_SETUP(MAX_ROW,MAX_COL)          \
-    do {                                        \
-        initscr();                              \
-        raw();                                  \
-        keypad(stdscr, TRUE);                   \
-        noecho();                               \
-        getmaxyx(stdscr, MAX_ROW, MAX_COL);     \
-        nonl();                                 \
-    } while (0)
-
-typedef struct _position {
-    int y;
-    int x;
-} position;
-
-void io_handler();
+#include "curse.h"
 
 void print_prompt() {
-    char dir[CMD_SIZE];
-    getcwd(dir, CMD_SIZE);
-    printw("%s:wish> ", dir);
+    printw("wish -> ");
+}
+
+void print_file_to_curses(const char *filepath) {
+
+    FILE *fp = fopen(filepath, "r");
+    size_t size = CMD_SIZE;
+    char *buffer = (char *)malloc(size*sizeof(char));
+
+    while(1) {
+        size_t size = getline(&buffer, &size, fp);
+        if(size == -1) break;
+        buffer[size-1] = '\0';
+        printw("%s\n", buffer);
+    }
+    free(buffer);
 }
 
 position getNewCursorPosition(position start, int length) {
@@ -49,22 +33,6 @@ position getNewCursorPosition(position start, int length) {
     end.x = (start.x + length)%max.x;
 
     return end;
-}
-
-int main () {
-
-    int max_row, max_col;
-    char cmd[CMD_SIZE];
-    
-    NCURSES_SETUP(max_row, max_col);
-
-    while ( TRUE ) {
-        print_prompt(); io_handler(cmd);
-        printw("\n[CMD] %s\n", cmd);
-        for(int i = 0; i < CMD_SIZE; i++) cmd[i] = '\0';
-    }
-
-    return 0;
 }
 
 /**
@@ -190,6 +158,7 @@ void io_handler (char *cmd) {
         if (signal == BREAK_CHAR) {
             currIndex = strlen(cmd)-1;
             move(end.y, end.x);
+            printw("\n");
             refresh();
             return;
         }
@@ -241,10 +210,21 @@ void io_handler (char *cmd) {
                 move(current.y, current.x);
             }
         }
-        
-        // int n = strlen(cmd);
-        // for (int i = 0; i < n; i ++) {
-        //     if (i == (n + highlight)) 
-        // }
     }
 }
+
+// int main () {
+
+//     int max_row, max_col;
+//     char cmd[CMD_SIZE];
+    
+//     NCURSES_SETUP(max_row, max_col);
+
+//     while ( TRUE ) {
+//         print_prompt(); io_handler(cmd);
+//         printw("\n[CMD] %s\n", cmd);
+//         for(int i = 0; i < CMD_SIZE; i++) cmd[i] = '\0';
+//     }
+
+//     return 0;
+// }
