@@ -73,12 +73,15 @@ int main () {
 void sigterm_handler() {
     printw("[LOG] CTRL-C\n");
     refresh();
-    exit(0);
 }
 
 void sigbg_handler() {
     printw("[LOG] CTRL-Z\n");
     refresh();
+}
+
+void sigexit_handler() {
+    exit(0);
 }
 
 void keyup_handler() {
@@ -128,6 +131,8 @@ int handle_char(int ch, char *cmd, int *currIndex) {
         sigterm_handler();
     } else if (ch == CTRL(z) ) {
         sigbg_handler();
+    } else if (ch == CTRL(d) ) {
+        sigexit_handler(); //for now
     } else if (ch == KEY_UP) {
         keyup_handler();
     } else if (ch == KEY_DOWN) {
