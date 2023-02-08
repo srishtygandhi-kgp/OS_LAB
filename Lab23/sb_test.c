@@ -42,7 +42,7 @@ void create_children() {
         int ch_pid = fork();
 
         // forking the 5 children
-        if ( ch_pid )
+        if ( ch_pid == 0 )
 
             // this will create 10 grandchildren and then loop
             create_grandchildren_and_loop();          
