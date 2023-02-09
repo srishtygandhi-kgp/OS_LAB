@@ -11,6 +11,7 @@
 
 #include "utils.h"
 #include "curse.h"
+#define LEN 10
 
 char* ltrim(char* s) {
     size_t len = strlen(s);
