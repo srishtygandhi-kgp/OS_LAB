@@ -9,6 +9,8 @@
 #define RIGHTARROW -5
 #define DEL -6
 #define BACKSPACE -7
+#define UPARROW -8
+#define DOWNARROW -9
 
 #define CTRL(X) ( #X[0] - 'a' + 1 )
 

@@ -13,6 +13,8 @@
 #include "curse.h"
 #define LEN 10
 
+#define LEN 2
+
 char* ltrim(char* s) {
     size_t len = strlen(s);
     size_t i = 0;
