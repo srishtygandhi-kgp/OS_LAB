@@ -10,10 +10,9 @@
 #include <sys/wait.h>
 
 #include <readline/readline.h>
-#include <readline/history.h> // TO BE REMOVED
 
 #include "utils.h"
-// #include "curse.h"
+#include "myhistory.h"
 
 #define LEN 10
 #define PROMPT "wish>"
@@ -817,12 +816,13 @@ char *rl_gets()
 
     if (!line_read){
         printf("[EXITING...]\n");
+        saveHistory();
         exit(EXIT_SUCCESS);
     }
 
     /* If the line has any text in it, save it on the history. */
     if (line_read && *line_read)
-        add_history(line_read);
+        setHistory(line_read);
 
     return (line_read);
 }
@@ -846,19 +846,48 @@ void sigint_handler(int signum) {
     printf("        %s\n", line_read);
 }
 
+int up_arrow_function(int count, int key) {
+    char* historyCmd = (char *)malloc(CMD_SIZE*sizeof(char));
+    historyCmd = getHistory(historyIndex + 1);
+    if(historyCmd == NULL) return 0;
+    if(historyIndex == -1) strcpy(commandBackup, rl_line_buffer);
+    rl_clear_visible_line();
+    rl_insert_text(historyCmd);
+    rl_redisplay();
+    historyIndex++;
+    return 0;
+}
+
+int down_arrow_function(int count, int key) {
+    if(historyIndex == -1) return 0;
+    else if(historyIndex == 0) {
+        rl_clear_visible_line();
+        rl_insert_text(commandBackup);
+    }
+    else {
+        char* historyCmd = (char *)malloc(CMD_SIZE*sizeof(char));
+        historyCmd = getHistory(historyIndex + 1);
+        rl_clear_visible_line();
+        rl_insert_text(historyCmd);
+    }
+    rl_redisplay();
+    historyIndex--;
+    return 0;
+}
+
 int main()
 {
     signal(SIGTSTP, sigstp_hamdler);
     signal(SIGINT, sigint_handler);
 
-    int max_row, max_col;
-    char inp[CMD_SIZE];
-    char *cmd = (char *)malloc(CMD_SIZE * sizeof(char));
-    int status = 0;
-    int mystdout, ogstdout, mystderr, ogstderr;
+    rl_bind_keyseq("\\e[A", up_arrow_function);
+    rl_bind_keyseq("\\e[B", down_arrow_function);
+
+    loadHistory();
 
     while (TRUE)
     {
+        historyIndex = -1;
         shell_call();
     }
 
