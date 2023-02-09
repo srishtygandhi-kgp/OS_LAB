@@ -780,6 +780,8 @@ int main()
 
         for(int i = 0; i < CMD_SIZE; i++) inp[i] = '\0';
     }
+    
+    endwin();
 
     return 0;
 }
