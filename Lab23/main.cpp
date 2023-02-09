@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <glob.h>
 #include <sys/wait.h>
 #include <ncurses.h>
@@ -296,6 +297,170 @@ void squash_bug(char* cmd){
     
 }
 
+// delep <filepath>
+void delep(char *filePath)
+{
+    pid_t pID , wpid;
+    int status = 0;
+    pID= fork();
+    vector flock_pids;
+    vector_init(&flock_pids);
+    // child process finds out pids holding lock over the file
+    if (pID == 0)
+    {
+        int fd, inode;
+        fd = open(filePath, O_RDONLY);
+        if (fd < 0)
+        {
+            perror("open");
+            return;
+        }
+        struct stat buf;
+        int ret = fstat(fd, &buf);
+        if (ret < 0)
+        {
+            perror("\nError in fstat\n");
+            return;
+        }
+        // inode now contains inode number of the file with descriptor fd
+        inode = buf.st_ino;
+        // printf("inode of file = %d\n", inode);
+        FILE *file_ptr = fopen("/proc/locks", "r");
+        if (file_ptr != NULL) {
+        printw("file opened");
+        //refresh();
+        }
+        char *buffer = (char *)malloc(100 * sizeof(char));
+        int p = 0, inodePID;
+        size_t size = 10;
+        while (1)
+        {
+            size = getline(&buffer, &size, file_ptr);
+            if (size == -1)
+                break;
+            buffer[size - 1] = '\0';
+            char *copy = (char *)malloc(size * sizeof(char));
+            strcpy(copy, buffer);
+
+            // 1: POSIX  ADVISORY  WRITE 3553 103:05:3937956 1073741826 1073742335
+            unsigned int i = 0;
+            while (i < strlen(copy))
+            {
+                if (copy[i] == ' ')
+                    break;
+                i++;
+            }
+            i++;
+            char ltype[50], bufPID[50], inode_buf[50];
+            memset(&ltype, '\0', sizeof(ltype));
+            memset(&bufPID, '\0', sizeof(bufPID));
+            memset(&inode_buf, '\0', sizeof(inode_buf));
+            int c = 0;
+            // store the type
+            while (i < strlen(copy))
+            {
+                if (copy[i] == ' ')
+                    break;
+                ltype[c++] = copy[i++];
+            }
+            ltype[c] = '\0';
+            if (strcmp(ltype, "FLOCK") != 0)
+                continue;
+            i++;
+            // skip the mode and type (read/write)
+            while (i < strlen(copy))
+            {
+                if (copy[i] >= '0' && copy[i] <= '9')
+                    break;
+                i++;
+            }
+            // copy the pid
+            c = 0;
+            while (i < strlen(copy))
+            {
+                if (copy[i] == ' ')
+                    break;
+                bufPID[c++] = copy[i++];
+            }
+            bufPID[c] = '\0';
+
+            // skip the until first semicolon
+            while (i < strlen(copy))
+            {
+                if (copy[i] == ':')
+                    break;
+                i++;
+            }
+            i++;
+            // skip the until second semicolon
+            while (i < strlen(copy))
+            {
+                if (copy[i] == ':')
+                    break;
+                i++;
+            }
+
+            // copy the i node
+            c = 0;
+            i++;
+            while (i < strlen(copy))
+            {
+                if (copy[i] == ' ')
+                    break;
+                inode_buf[c++] = copy[i++];
+            }
+            inode_buf[c] = '\0';
+            inodePID = atoi(inode_buf); // convert string to int
+            // printf("\npid = %s, inode = %d\n", bufPID, inodePID);
+
+            if ((!strcmp(ltype, "FLOCK")) && (inodePID == inode))
+            {
+                // printf("\n%s, pid = %s, inode = %d\n", ltype, bufPID, inodePID);
+                size = strlen(bufPID)+1;
+                char *str = (char *)malloc(size * sizeof(char));
+                strcpy(str, bufPID);
+                vector_add(&flock_pids, str);
+            }
+        }
+        fclose(file_ptr);
+        free(buffer);
+    }
+    // in parent process 
+    while ((wpid = wait(&status)) > 0); // parent waits for the child process
+
+    char choice;
+    if (vector_total(&flock_pids) == 0)
+    {
+        printw("File is not opened by any application. Do you want to delete? [y/n] ");
+        choice = getch();
+        printw("\nchoice = %c", choice);
+        if (choice == 'y')
+        {
+            remove(filePath);
+        }
+    }
+    else
+    {
+        printw("File is opened by the following processes: \n");
+        for (int i = 0; i < vector_total(&flock_pids); i++)
+        {
+            printw("%s\n", (char *)vector_get(&flock_pids, i));
+        }
+        printw("Do you want to kill all these processes and delete the file? [y/n] ");
+        choice = getch();
+        printw("\nchoice = %c", choice);
+        if (choice == 'y')
+        {
+            for (int i = 0; i < vector_total(&flock_pids); i++)
+            {
+                kill(atoi(vector_get(&flock_pids, i)), SIGKILL);
+                printw("\nkill pid %d\n", atoi(vector_get(&flock_pids, i)));
+            }
+            remove(filePath);
+        }
+    }
+    getchar();
+}
 
 // Execute the commands
 void execCmd(char *cmd)
@@ -427,11 +592,18 @@ void runcmd(char* cmd, int* status_){
                     else dirPath[c++] = dest_dir[j];
                 }
                 dirPath[c]='\0';
-                chdir(dirPath);
+                if ((c =chdir(dirPath)) == -1)
+                {
+                    printf("wish: cd: %s: No such file or directory\n", dest_dir+3);
+                }
             }
             return;
+        } else if (strcmp(vector_get(&temp, 0), "delep") == 0){
+            printw("\ntemp[1] = %s\n", vector_get(&temp, 1));
+            delep(vector_get(&temp, 1));
+            return;
         }
-            
+        
         pid_t pid = fork();
         if(pid == 0)
         {
