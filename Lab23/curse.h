@@ -18,6 +18,8 @@
         raw();                                  \
         keypad(stdscr, TRUE);                   \
         noecho();                               \
+        idlok(stdscr, TRUE);                    \
+        scrollok(stdscr, TRUE);                 \
         getmaxyx(stdscr, MAX_ROW, MAX_COL);     \
         nonl();                                 \
     } while (0)
