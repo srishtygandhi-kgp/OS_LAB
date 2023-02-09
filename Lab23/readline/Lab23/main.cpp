@@ -834,16 +834,18 @@ void shell_call()
     runcmd(rl_gets(), &status);
 }
 
-// SIGNALLLLLLL
+// SIGNAL
 void sigstp_hamdler(int signum)
 {
-    shell_call();
-    printf("\n");
+    if ( signum == SIGTSTP )
+        printf("        +%s\n", line_read);
+    
+    kill(getpid(), SIGCHLD);
 }
 
 void sigint_handler(int signum) {
-    kill(fgpid, SIGINT);
     printf("        %s\n", line_read);
+    kill(fgpid, SIGINT);
 }
 
 int up_arrow_function(int count, int key) {
