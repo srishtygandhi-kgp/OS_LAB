@@ -440,11 +440,7 @@ void delep(char *filePath)
         inode = buf.st_ino;
         // printf("inode of file = %d\n", inode);
         FILE *file_ptr = fopen("/proc/locks", "r");
-        if (file_ptr != NULL)
-        {
-            printf("file opened");
-            // refresh();
-        }
+        
         char *buffer = (char *)malloc(100 * sizeof(char));
         int p = 0, inodePID;
         size_t size = 10;
@@ -457,7 +453,6 @@ void delep(char *filePath)
             char *copy = (char *)malloc(size * sizeof(char));
             strcpy(copy, buffer);
 
-            // 1: POSIX  ADVISORY  WRITE 3553 103:05:3937956 1073741826 1073742335
             unsigned int i = 0;
             while (i < strlen(copy))
             {
@@ -548,8 +543,14 @@ void delep(char *filePath)
     if (vector_total(&flock_pids) == 0)
     {
         printf("File is not opened by any application. Do you want to delete? [y/n] ");
-        choice = getc(stdin);
-        printf("\nchoice = %c", choice);
+        // choice = getc(stdin);
+        while(1) {
+            choice = getc(stdin);
+            if(choice == 'y' || choice == 'n')
+            break;
+            printf("Please enter choicce [y/n] ");
+            getc(stdin);
+        }
         if (choice == 'y')
         {
             remove(filePath);
@@ -563,8 +564,14 @@ void delep(char *filePath)
             printf("%s\n", (char *)vector_get(&flock_pids, i));
         }
         printf("Do you want to kill all these processes and delete the file? [y/n] ");
-        choice = getc(stdin);
-        printf("\nchoice = %c", choice);
+        // choice = getc(stdin);
+        while(1) {
+            choice = getc(stdin);
+            if(choice == 'y' || choice == 'n')
+            break;
+            printf("Please enter choicce [y/n] ");
+            getc(stdin);
+        }
         if (choice == 'y')
         {
             for (int i = 0; i < vector_total(&flock_pids); i++)
@@ -727,7 +734,6 @@ void runcmd(char *cmd, int *status_)
         }
         else if (strcmp(vector_get(&temp, 0), "delep") == 0)
         {
-            printf("\ntemp[1] = %s\n", vector_get(&temp, 1));
             delep(vector_get(&temp, 1));
             return;
         }
