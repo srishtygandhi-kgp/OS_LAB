@@ -15,14 +15,16 @@ void loadHistory() {
     FILE *fp = fopen("/tmp/temp_shell_history.txt", "r");
     if(!fp) return;
 
-    size_t size = 300;
-    char *buffer = (char *)malloc(size*sizeof(char));
+    size_t max_size = 300;
+    char *buffer = (char *)malloc(max_size*sizeof(char));
 
     while(1) {
-        size_t size = getline(&buffer, &size, fp);
+        size_t size = getline(&buffer, &max_size, fp);
         if((int)size == -1) break;
         buffer[size-1] = '\0';
-        history.push_back(buffer);
+        char *copy = (char *)malloc(max_size*sizeof(char));
+        strcpy(copy, buffer);
+        history.push_back(copy);
     }
     free(buffer);
     fclose(fp);
