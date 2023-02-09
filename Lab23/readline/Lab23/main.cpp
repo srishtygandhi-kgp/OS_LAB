@@ -853,8 +853,6 @@ int up_arrow_function(int count, int key) {
     historyCmd = getHistory(historyIndex + 1);
     if(historyCmd == NULL) return 0;
     if(historyIndex == -1) strcpy(commandBackup, rl_line_buffer);
-    // rl_delete_text(5, rl_end);
-    // rl_insert_text(historyCmd);
     strcpy(rl_line_buffer, historyCmd);
     rl_end = strlen(historyCmd);
     rl_redisplay();
