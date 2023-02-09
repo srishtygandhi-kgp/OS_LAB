@@ -236,37 +236,65 @@ int get_parent_pid(int pid) {
   return ppid;
 }
 
-void read_stat_file(int pid){
+int get_num_childeren(int pid){
+    // opens proc/[pid]/task/[pid]/childeren
+    // and then find number of childeren in it
+    if(pid == 0)
+        return 0;
+    int cnt = 0;
     char proc_path[1024];
-    snprintf(proc_path, 1024, "/proc/%d/stat", pid);
+    snprintf(proc_path, 1024, "/proc/%d/task/%d/children", pid,pid);
+    // printw("Trying to open %s\n", proc_path);
     FILE *f = fopen(proc_path, "r");
     if (f == NULL) {
-        printw("-1, /proc/%d/stat does not exist\n", pid);
-        //refresh();
-        return ;
+        printw("-1, /proc/%d/task/%d/children does not exist\n", pid,pid);
+        exit(0);
     }
-    int ppid = -1;
     char line[2048];
-    vector fields;
-    vector_init(&fields);
+    vector child;
+    vector_init(&child);
     if(fgets(line, 2048, f) != NULL) {
-       fields = split(line, ' '); 
+       child = split(line, ' '); 
     }
-
-    printw("ppid -- %s", (char*)vector_get(&fields, 22));
-    //refresh();
-    for(int i = 0; i < vector_total(&fields); i++){
-        printw("%s ", (char*)vector_get(&fields,i));
-        //refresh();
+    for(int i = 0; i < vector_total(&child); i++){
+        int child_pid = atoi((char*)vector_get(&child, i));
+        cnt += 1;
+        cnt += get_num_childeren(child_pid);
     }
-    fclose(f);
+    return cnt;
 }
+
+// void read_stat_file(int pid){
+//     char proc_path[1024];
+//     snprintf(proc_path, 1024, "/proc/%d/stat", pid);
+//     FILE *f = fopen(proc_path, "r");
+//     if (f == NULL) {
+//         printw("-1, /proc/%d/stat does not exist\n", pid);
+//         //refresh();
+//         return ;
+//     }
+//     int ppid = -1;
+//     char line[2048];
+//     vector fields;
+//     vector_init(&fields);
+//     if(fgets(line, 2048, f) != NULL) {
+//        fields = split(line, ' '); 
+//     }
+
+//     printw("ppid -- %s", (char*)vector_get(&fields, 22));
+//     //refresh();
+//     for(int i = 0; i < vector_total(&fields); i++){
+//         printw("%s ", (char*)vector_get(&fields,i));
+//         //refresh();
+//     }
+//     fclose(f);
+// }
 
 void getparent(int pid) {
     int parent_pid = get_parent_pid(pid);
     printw("Process ID: %d, Parent Process ID: %d\n", pid, parent_pid);
     // get_process_info(pid);
-    read_stat_file(pid);
+//     read_stat_file(pid);
     printw("\n");
     //refresh();
     if (parent_pid != 1) {
@@ -274,6 +302,52 @@ void getparent(int pid) {
     }
 }
 
+int sb_suggest(int pid){
+    int arr[LEN][2];
+    for(int i = 0; i < LEN; i++) arr[i][0] = 0;
+    int i = 0;
+    while(i<LEN){
+        if(pid == 1){
+            arr[i][0] = pid;
+            arr[i][1] = get_num_childeren(pid);
+            i++;
+            break;
+        }
+        int ppid = get_parent_pid(pid);
+        if((pid == 0 || pid == -1)){
+            break;
+        }
+        arr[i][0] = pid;
+        arr[i][1] = get_num_childeren(pid);
+        pid = ppid;
+        i++;
+    }
+
+    // printw("i == %d\n",i);
+
+    // for(int a = 0; a < (i); a++){
+        // printw("%d -- %d\n",arr[a][0], arr[a][1]);
+    // }
+
+    // DIFFERENTIAL
+    int cnt = i--;
+    for(i; i >=0; i--){
+        arr[i][1] = arr[i][1] - arr[i-1][1];
+        // printw("%d -- %d\n", arr[i][0],arr[i][1]);
+
+    }
+    arr[cnt-1][1] = 0;
+    int max = arr[0][1];
+    int max_ind = 0;
+    for(int j = 1; j < cnt ; j++){
+        // printw("%d -- %d\n", arr[j][0],arr[j][1]);
+        if(max < arr[j][1]){
+            max = arr[j][1];
+            max_ind = j;
+        }
+    }
+    return arr[max_ind][0];    
+}
 
 void squash_bug(char* cmd){
     // syntax -- sb then number then flag
@@ -290,10 +364,13 @@ void squash_bug(char* cmd){
         }
         cnt++;
     }
-
-    printw("%d\n",given_process_id );
-    //refresh();
-    getparent(given_process_id);
+    if(strstr(cmd," -suggest")){
+        printw("culprit --  %d\n",sb_suggest(given_process_id));
+    }
+    else{
+        printw("%d\n",given_process_id );
+        getparent(given_process_id);  
+    } 
     
 }
 
@@ -324,7 +401,7 @@ void delep(char *filePath)
         }
         // inode now contains inode number of the file with descriptor fd
         inode = buf.st_ino;
-        // printf("inode of file = %d\n", inode);
+        // printw("inode of file = %d\n", inode);
         FILE *file_ptr = fopen("/proc/locks", "r");
         if (file_ptr != NULL) {
         printw("file opened");
