@@ -853,8 +853,10 @@ int up_arrow_function(int count, int key) {
     historyCmd = getHistory(historyIndex + 1);
     if(historyCmd == NULL) return 0;
     if(historyIndex == -1) strcpy(commandBackup, rl_line_buffer);
-    rl_clear_visible_line();
-    rl_insert_text(historyCmd);
+    // rl_delete_text(5, rl_end);
+    // rl_insert_text(historyCmd);
+    strcpy(rl_line_buffer, historyCmd);
+    rl_end = strlen(historyCmd);
     rl_redisplay();
     historyIndex++;
     return 0;
@@ -863,14 +865,14 @@ int up_arrow_function(int count, int key) {
 int down_arrow_function(int count, int key) {
     if(historyIndex == -1) return 0;
     else if(historyIndex == 0) {
-        rl_clear_visible_line();
-        rl_insert_text(commandBackup);
+        strcpy(rl_line_buffer, commandBackup);
+        rl_end = strlen(commandBackup);
     }
     else {
         char* historyCmd = (char *)malloc(CMD_SIZE*sizeof(char));
-        historyCmd = getHistory(historyIndex + 1);
-        rl_clear_visible_line();
-        rl_insert_text(historyCmd);
+        historyCmd = getHistory(historyIndex - 1);
+        strcpy(rl_line_buffer, historyCmd);
+        rl_end = strlen(historyCmd);
     }
     rl_redisplay();
     historyIndex--;
