@@ -15,7 +15,7 @@
 #include "myhistory.h"
 
 #define LEN 10
-#define PROMPT "wish>"
+#define PROMPT "wish ->"
 #define CMD_SIZE 300
 
 char *ltrim(char *s)
