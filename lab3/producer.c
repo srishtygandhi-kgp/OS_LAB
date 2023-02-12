@@ -103,21 +103,68 @@ int main() {
     }
 
     // Access the shared memory here
-    for(int i = 0; i < 30; i++){
-        for(int j = 0; j < 10; j++){
-            printf("%d ",array[i][j] );
+//     for(int i = 0; i < 30; i++){
+//         for(int j = 0; j < 10; j++){
+//             printf("%d ",array[i][j] );
+//         }
+//         printf("\n");
+//     }
+  
+  while(1){
+        // update_graph(array);
+        int m = get_rand_inrange(10,30);
+        // printf("\n m -- %d\n",m);
+        for(int i = 0; i < m; i++){
+            // printf("%d ",i);
+            int new_node;
+            for(int a = 0; a<ROWS; a++){
+                if(array[a][0] == 0){
+                    new_node = a;
+                    // printf("new_node -- %d", new_node);
+                    break;
+                }
+            }
+
+            int k = get_rand_inrange(1,20);
+            for(int a = 0; a<k; a++){
+                int existing_node;
+                long long int total_degree = 0;
+                for(int b = 0; b < ROWS; b++){
+                    total_degree += array[b][0];
+                }
+                // printf("%d -- total degree\n",total_degree);
+                int randomNumber = get_rand_inrange(1,total_degree);
+                int sum = 0;
+                // int c = 0;
+                for(int b = 0; b < ROWS; b++){
+                    sum += array[b][0];
+                    if(randomNumber <= sum){
+                        existing_node = b;
+                        break;
+                    }
+                }
+                // existing_node = c;
+                // printf("%d -- existing node \n",existing_node);
+                // add edge to graph
+                if(array[new_node][existing_node+1] == 0){
+                    array[new_node][existing_node+1] = 1;
+                    array[existing_node][new_node+1] = 1;
+                    array[new_node][0] +=1;
+                    array[existing_node][0] += 1;
+                    // printf("added new edge\n");
+                }
+            }
+
+            
+
         }
-        printf("\n");
+        // printf("\n");
+        sleep(50);
     }
 
     if (shmdt(array) == -1) {
         perror("shmdt");
         exit(1);
-    }
-
-    while(1){
-//         update_graph(array);
-        sleep(50);
     }
 
     return 0;
