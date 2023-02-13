@@ -1,0 +1,41 @@
+Heuristics 
+As suggested in the assignment itself, the number of children spawned, or the uptime of a process can be used as heuristics to detect the bug. 
+If we think more along those lines, some better heuristics might be calculating the total number of spawned descendants (children + grandchildren and so on), or the percentage of resources used.
+
+
+Challenges –
+1. If we use more than one value to judge (let’s say we are finding a process that has high CPU usage and high runtime).
+There were two ways to deal with such cases, first one was to simply sort on both the values and then declare some tie breaks.
+Second was to first normalize it and then calculate the score by using a weighted mean function.
+The major problem with these two approaches was deciding which field is more important than the other, on what criteria should we decide the tiebreak, which field should have more weight, and so on.
+2. If we go ahead with just one field such as checking the total number of descendants spawned or the longest time the process has been running, it will just return the process with pid one as all the processes started from there, so it will have the max number of descendants, and it will have max up_time since it was the first one to start.
+We can’t really use the max cpu usage directly as the culprit process sleeps for most of the time.
+
+
+Solution –
+differential_descendants 
+
+How it actually works
+Step 1) When you give a suspicious pid, it calculates the number of descendants for parent, grandparent … all the way to pid = 1.
+Step 2) Calculate the differential values by subtracting the number of descendants of all pids from the descendants of their parent.
+
+
+Example
+Let’s say we enter 27 as pid 
+The output of sb 27
+27 → 13 → 12 →1
+
+
+27 →  13 →  12 → 1
+|     |     |    |     
+10    50    55   65   —  Total number of descendants 
+|     |     |    |
+10    40    5    10   —  differential values, with 40 as the maximum
+                        so process with pid = 13 is the malware
+
+Further Improvement
+In differential_descendant instead of calculating total number of descendants, we can find the total cpu usage of the process along with it’s descendants.
+
+
+Why will it work?
+When we find the maximum in the above-given process we are basically finding the process which has the maximum slope associated with it. In other words, it finds which pid in the chain has the most abnormal change, and will let us know which process is fork-bombing (if it exists, if none is fork-bombing, then it will tell us which process is hogging up the resources of your pc).
