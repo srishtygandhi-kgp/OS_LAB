@@ -7,13 +7,7 @@
 #include <wait.h>
 #include <string.h>
 
-#define FILE_PATH "facebook_combined.txt"
-#define MAX_INT 5000
-#define KEY 1234
-#define FILE_PATH_FOR_KEY "main.c"
-#define PROJECT_ID 1
-#define ROWS 8000 // double the number of initial rows
-#define COLS 8000 // 8 times the number of initial rows
+#include "macros.h"
 
 void calculate_num_nodes(char* file_path, int* graph_size){
     //graph_size[0] --> uniques, integers in the file  which is loaded --> max number of nodes
@@ -29,7 +23,10 @@ void calculate_num_nodes(char* file_path, int* graph_size){
     while (fgets(line, 20, file) ) {
         char *token = strtok(line, " ");
         int first = atoi(token);
+        token = strtok(NULL, " ");
+        int second = atoi(token);
         count[first]++;
+        count[second]++;
     }
 
     int max_node = MAX_INT;
