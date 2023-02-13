@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "curse.h"
-#include "history.h"
 
 void print_prompt() {
     printw("wish -> ");
@@ -103,9 +102,9 @@ int handle_char(int ch, char *cmd, int *currIndex) {
     } else if (ch == CTRL(d) ) {
         sigexit_handler(); //for now
     } else if (ch == KEY_UP) {
-        return UPARROW;
+        keyup_handler();
     } else if (ch == KEY_DOWN) {
-        return DOWNARROW;
+        keydown_handler();
     } else if (ch == CTRL(a)) {
         return TOSTART;
     } else if (ch == CTRL(e)) {
@@ -140,9 +139,6 @@ void io_handler (char *cmd) {
 
     // character input
     int ch_in, currIndex = 0;
-    int historyIndex = -1; //-1 is current
-
-    char *cmdcpy = (char *)malloc(CMD_SIZE*sizeof(char));
 
     position start, end, current;
 
@@ -158,10 +154,6 @@ void io_handler (char *cmd) {
         current = getNewCursorPosition(start, currIndex);
         move(current.y, current.x);
         end = getNewCursorPosition(start, strlen(cmd));
-
-        if(historyIndex == -1 && signal != DOWNARROW && signal != UPARROW) {
-            strcpy(cmdcpy, cmd);
-        }
 
         if (signal == BREAK_CHAR) {
             currIndex = strlen(cmd)-1;
@@ -217,21 +209,6 @@ void io_handler (char *cmd) {
                 refresh();
                 move(current.y, current.x);
             }
-        }
-        else if(signal == UPARROW) {
-            char* historyCmd = (char *)malloc(CMD_SIZE*sizeof(char));
-            historyCmd = getHistory(historyIndex + 1);
-            if(historyCmd == NULL) continue;
-            strcpy(cmd, historyCmd);
-            move(start.y, start.x);
-            clrtobot();
-            addstr(cmd);
-            currIndex = strlen(cmd)-1;
-            historyIndex++;
-            refresh();
-        }
-        else if(signal == DOWNARROW) {
-
         }
     }
 }

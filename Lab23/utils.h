@@ -2,7 +2,10 @@
 #define VECTOR_H
  
 #define VECTOR_INIT_CAPACITY 4
- 
+#define TRUE 1
+#define FALSE 0
+
+
 #define VECTOR_INIT(vec) vector vec; vector_init(&vec)
 #define VECTOR_ADD(vec, item) vector_add(&vec, (char *) item)
 #define VECTOR_SET(vec, id, item) vector_set(&vec, id, (char *) item)
