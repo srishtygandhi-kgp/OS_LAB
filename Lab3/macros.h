@@ -8,5 +8,6 @@
 #define PROJECT_ID 1
 #define ROWS 8000 // double the number of initial rows
 #define COLS 8000 // 4 times the number of initial rows
+#define INFINITY 99999
 
 #endif
