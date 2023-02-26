@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 #include "macros.h"
 
@@ -21,7 +22,7 @@ void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
 
 
     for(int i=0; i<ROWS; i++){
-        shortestDists[i] = INFINITY;
+        shortestDists[i] = INFINITE;
         isAdded[i] = 0;
         parent[i] = -1;
     }
@@ -29,7 +30,7 @@ void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
     shortestDists[sourceNode] = 0;
     for(int i=1; i < ROWS; i++) {
         int nearestNode = -1;
-        int shortestDist = INFINITY;
+        int shortestDist = INFINITE;
 
         for(int j = 0; j < ROWS; j++) {
             if(!isAdded[j] && shortestDists[j] < shortestDist) {
@@ -55,10 +56,10 @@ void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
     
     printf("Printing path to file for source node %d\n", sourceNode);
     for(int i=0; i < ROWS; i++) {
-        if( i != sourceNode && shortestDists[i] != INFINITY) {
+        if( i != sourceNode && shortestDists[i] != INFINITE) {
 
             fprintf(fp, "Distance of node %d from source node %d = %d, ", i, sourceNode, shortestDists[i]);
-            fprintf(fp,"Path = ");
+            fprintf(fp,"Path is: ");
             printPath(parent, i, fp);
             fprintf(fp, "\n");
         }
@@ -68,7 +69,9 @@ void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    int consumerID = atoi(argv[1]);
+
     key_t key;
     key = ftok(FILE_PATH_FOR_KEY, PROJECT_ID);
     if (key == -1)
@@ -84,7 +87,6 @@ int main() {
         exit(1);
     }
 
-    int cid = 1; // consumer id
     int(*array)[COLS] = (int(*)[COLS])shmat(shmid, NULL, 0);
     if (array == (int(*)[COLS]) - 1)
     {
@@ -102,23 +104,29 @@ int main() {
     printf("total nodes: %d\n", count);
 
     // map the consumer to its set of nodes
-    count /= 10;
-    int consumerSet[count + 1];
-    int cnt = 0, max_degree=0;
-    printf("consumer-%d gets %d nodes\n", cid, count);
-    for (int i = 0; i < ROWS && cnt < count; i++)
+    int nodeShare = (int)(ceil((double)count / 10));
+    int prevNodeShare = (consumerID-1)*nodeShare;
+    int consumerSet[nodeShare];
+    int cnt = 0;
+    printf("consumer-%d gets %d nodes\n", consumerID, nodeShare);
+    
+    int currIndex = 0;
+    for(int i = 0; i < ROWS; i++, currIndex++) {
+        if(array[i][0] > 0 && prevNodeShare > 0) prevNodeShare--;
+        if(prevNodeShare == 0) break;
+    }
+
+    for (int i = currIndex+1; i < ROWS && cnt < nodeShare; i++)
     {
         if (array[i][0] > 0)
         {   
             // printf("array[%d][%d] = %d", i, 1, array[i][1]);
             consumerSet[cnt++] = i;
             // printf("putting node %d in consumer set\n", i);
-            if(array[i][0] > max_degree)
-            max_degree = array[i][0];
         }
     }
     char filepath[25];
-    sprintf(filepath, "consumer%d.txt", cid);
+    sprintf(filepath, "consumer%d.txt", consumerID);
     // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
     FILE *fp = fopen(filepath, "aw");
     for(int i = 0; i < count; i++) {

@@ -12,7 +12,7 @@ producer: producer.c macros.h facebook_combined.txt
 	$(CC) $(FLAGS) producer.c -o producer
 
 consumer: consumer.c macros.h facebook_combined.txt
-	$(CC) $(FLAGS) consumer.c -o consumer
+	$(CC) $(FLAGS) consumer.c -lm -o consumer
 
 clean:
 	rm main producer consumer
