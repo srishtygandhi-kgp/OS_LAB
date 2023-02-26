@@ -86,8 +86,6 @@ void populate_graph(int ** graph_input){
         int first = atoi(token);
         token = strtok(NULL, " ");
         int second = atoi(token);
-        if(first == 1)
-        printf("%d %d\n",first,second);
         // int a = first + 1;
         // int b = second + 1;
         graph_input[first][second+1] = 1;
