@@ -11,16 +11,15 @@
 
 int shortestDists[ROWS], isAdded[ROWS], parent[ROWS];
 
-
 void printPath(int *parent, int currNode, FILE *fp) {
     if(currNode == -1) return;
     printPath(parent, parent[currNode], fp);
     fprintf(fp, "%d ", currNode);
 }
 
-void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
+void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp) {
 
-
+    // printf("source: %d\n", sourceNode);
     for(int i=0; i<ROWS; i++){
         shortestDists[i] = INFINITE;
         isAdded[i] = 0;
@@ -57,8 +56,7 @@ void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
     for(int i=0; i < ROWS; i++) {
         if( i != sourceNode && shortestDists[i] != INFINITE) {
 
-            fprintf(fp, "Distance of node %d from source node %d = %d, ", i, sourceNode, shortestDists[i]);
-            fprintf(fp,"Path is: ");
+            fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, sourceNode, shortestDists[i]);
             printPath(parent, i, fp);
             fprintf(fp, "\n");
         }
@@ -109,12 +107,11 @@ int main(int argc, char* argv[]) {
         int cnt = 0;
         
         int currIndex = 0;
-        for(int i = 0; i < ROWS; i++, currIndex++) {
+        for(int i = 0; i < ROWS && prevNodeShare > 0; i++, currIndex++) {
             if(array[i][0] > 0 && prevNodeShare > 0) prevNodeShare--;
-            if(prevNodeShare == 0) break;
         }
 
-        for (int i = currIndex+1; i < ROWS && cnt < nodeShare; i++)
+        for (int i = currIndex; i < ROWS && cnt < nodeShare; i++)
         {
             if (array[i][0] > 0)
             {   
@@ -127,9 +124,9 @@ int main(int argc, char* argv[]) {
         sprintf(filepath, "consumer%d.txt", consumerID);
         // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
         FILE *fp = fopen(filepath, "aw");
-        for(int i = 0; i < count; i++) {
+        for(int i = 0; i < cnt; i++) {
             // make every element of consumerSet as source node for dijkstra
-            tryDij(array, consumerSet[i], fp);
+            Dijkstra(array, consumerSet[i], fp);
             fprintf(fp, "\n\n");
         }
         fclose(fp);
