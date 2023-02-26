@@ -54,7 +54,7 @@ void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp) {
     }
     
     for(int i=0; i < ROWS; i++) {
-        if( i != sourceNode && shortestDists[i] != INFINITE) {
+        if( i != sourceNode && shortestDists[i] != INFINITE && Graph[i][0]>0) {
 
             fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, sourceNode, shortestDists[i]);
             printPath(parent, i, fp);
