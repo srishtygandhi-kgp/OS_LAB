@@ -17,3 +17,7 @@ consumer: consumer.c macros.h facebook_combined.txt
 clean:
 	rm main producer consumer consumer*.txt
 .PHONY: clean
+
+kill:
+	killall -9 consumer producer
+.PHONY: kill
