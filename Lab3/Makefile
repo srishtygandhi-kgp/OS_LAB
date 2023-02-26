@@ -15,5 +15,5 @@ consumer: consumer.c macros.h facebook_combined.txt
 	$(CC) $(FLAGS) consumer.c -lm -o consumer
 
 clean:
-	rm main producer consumer
+	rm main producer consumer consumer*.txt
 .PHONY: clean

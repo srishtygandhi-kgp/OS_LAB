@@ -111,7 +111,7 @@ int main(){
     
     key_t key ;
     key = ftok(FILE_PATH_FOR_KEY, PROJECT_ID);
-//     printf("key --> %d\n",key);
+    // printf("key --> %d\n",key);
     
     if (key == -1) {
         perror("ftok");
@@ -125,5 +125,19 @@ int main(){
     // populate the graph
     populate_graph(graph);
 
-    
+    // run producer
+    if(fork() == 0) {
+        char *args[]={"./producer",NULL};
+        execvp(args[0], args);
+    }
+
+    // run consumers
+    for(int i = 1; i <= 10; i++) {
+        char consumerID[3];
+        sprintf(consumerID, "%d", i);
+        if(fork() == 0) {
+            char *args[]={"./consumer", consumerID, NULL};
+            execvp(args[0], args);
+        }
+    }
 }

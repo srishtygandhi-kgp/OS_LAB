@@ -54,7 +54,6 @@ void tryDij(int(*Graph)[COLS], int sourceNode, FILE *fp) {
         
     }
     
-    printf("Printing path to file for source node %d\n", sourceNode);
     for(int i=0; i < ROWS; i++) {
         if( i != sourceNode && shortestDists[i] != INFINITE) {
 
@@ -94,47 +93,50 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    // Access the shared memory here
-    int count = 0;
-    for (int i = 0; i < ROWS; i++)
-    {
-        if (array[i][0] > 0)
-            count++;
-    }
-    printf("total nodes: %d\n", count);
-
-    // map the consumer to its set of nodes
-    int nodeShare = (int)(ceil((double)count / 10));
-    int prevNodeShare = (consumerID-1)*nodeShare;
-    int consumerSet[nodeShare];
-    int cnt = 0;
-    printf("consumer-%d gets %d nodes\n", consumerID, nodeShare);
-    
-    int currIndex = 0;
-    for(int i = 0; i < ROWS; i++, currIndex++) {
-        if(array[i][0] > 0 && prevNodeShare > 0) prevNodeShare--;
-        if(prevNodeShare == 0) break;
-    }
-
-    for (int i = currIndex+1; i < ROWS && cnt < nodeShare; i++)
-    {
-        if (array[i][0] > 0)
-        {   
-            // printf("array[%d][%d] = %d", i, 1, array[i][1]);
-            consumerSet[cnt++] = i;
-            // printf("putting node %d in consumer set\n", i);
+    while(1) {
+        // Access the shared memory here
+        int count = 0;
+        for (int i = 0; i < ROWS; i++)
+        {
+            if (array[i][0] > 0)
+                count++;
         }
+
+        // map the consumer to its set of nodes
+        int nodeShare = (int)(ceil((double)count / 10));
+        int prevNodeShare = (consumerID-1)*nodeShare;
+        int consumerSet[nodeShare];
+        int cnt = 0;
+        
+        int currIndex = 0;
+        for(int i = 0; i < ROWS; i++, currIndex++) {
+            if(array[i][0] > 0 && prevNodeShare > 0) prevNodeShare--;
+            if(prevNodeShare == 0) break;
+        }
+
+        for (int i = currIndex+1; i < ROWS && cnt < nodeShare; i++)
+        {
+            if (array[i][0] > 0)
+            {   
+                // printf("array[%d][%d] = %d", i, 1, array[i][1]);
+                consumerSet[cnt++] = i;
+                // printf("putting node %d in consumer set\n", i);
+            }
+        }
+        char filepath[25];
+        sprintf(filepath, "consumer%d.txt", consumerID);
+        // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
+        FILE *fp = fopen(filepath, "aw");
+        for(int i = 0; i < count; i++) {
+            // make every element of consumerSet as source node for dijkstra
+            tryDij(array, consumerSet[i], fp);
+            fprintf(fp, "\n\n");
+        }
+        fclose(fp);
+
+        sleep(30);
     }
-    char filepath[25];
-    sprintf(filepath, "consumer%d.txt", consumerID);
-    // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
-    FILE *fp = fopen(filepath, "aw");
-    for(int i = 0; i < count; i++) {
-        // make every element of consumerSet as source node for dijkstra
-        tryDij(array, consumerSet[i], fp);
-        fprintf(fp, "\n\n");
-    }
-    fclose(fp);
+
     if (shmdt(array) == -1)
     {
         perror("shmdt");
