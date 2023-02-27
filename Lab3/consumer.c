@@ -66,7 +66,7 @@ void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp, int nodeIndex) {
 
 }
 
-void appendDij(int(*Graph)[COLS], int existingNode, int *newNodeSet, int newNodes, FILE *fp) {
+void appendDij(int(*Graph)[COLS], int existingNode, int existingNodeIndex, int *newNodeSet, int newNodes, FILE *fp) {
 
     for(int i = 0; i < newNodes; i++) {
         enqueue(newNodeSet[i]);
@@ -82,24 +82,24 @@ void appendDij(int(*Graph)[COLS], int existingNode, int *newNodeSet, int newNode
 
         for(int j = 0; j < ROWS; j++) {
             int weight = Graph[currentNewNode][j+1];
-            if(weight > 0 && shortestDists[existingNode][j] + weight < shortestDist) {
+            if(weight > 0 && shortestDists[existingNodeIndex][j] + weight < shortestDist) {
                 nearestNode = j;
-                shortestDist = shortestDists[existingNode][j] + weight;
+                shortestDist = shortestDists[existingNodeIndex][j] + weight;
             }
         }
 
         if(nearestNode == -1) continue;
 
-        parent[existingNode][currentNewNode] = nearestNode;
-        shortestDists[existingNode][currentNewNode] = shortestDist;
-        isAdded[existingNode][currentNewNode] = 1;
+        parent[existingNodeIndex][currentNewNode] = nearestNode;
+        shortestDists[existingNodeIndex][currentNewNode] = shortestDist;
+        isAdded[existingNodeIndex][currentNewNode] = 1;
 
         for(int j = 0; j < ROWS; j++) {
             int weight = Graph[currentNewNode][j+1];
 
-            if(weight > 0 && ((shortestDist+weight)<shortestDists[existingNode][j])) {
-                parent[existingNode][j] = currentNewNode;
-                shortestDists[existingNode][j] = shortestDist+weight;
+            if(weight > 0 && ((shortestDist+weight)<shortestDists[existingNodeIndex][j])) {
+                parent[existingNodeIndex][j] = currentNewNode;
+                shortestDists[existingNodeIndex][j] = shortestDist+weight;
 
                 enqueue(j);
             }
@@ -107,10 +107,10 @@ void appendDij(int(*Graph)[COLS], int existingNode, int *newNodeSet, int newNode
     }
 
     for(int i=0; i < ROWS; i++) {
-        if( i != existingNode && shortestDists[existingNode][i] != INFINITE && Graph[i][0]>0) {
+        if( i != existingNode && shortestDists[existingNodeIndex][i] != INFINITE && Graph[i][0]>0) {
 
-            fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, existingNode, shortestDists[existingNode][i]);
-            printPath(parent[existingNode], i, fp);
+            fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, existingNode, shortestDists[existingNodeIndex][i]);
+            printPath(parent[existingNodeIndex], i, fp);
             fprintf(fp, "\n");
         }
     }
@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
 
             // fix previously computed paths
             for(int i = 0; i < myConsumerNodeCount; i++) {
-                appendDij(array, consumerSet[i], newNodeSet, newNodes, fp);
+                appendDij(array, consumerSet[i], i, newNodeSet, newNodes, fp);
                 fprintf(fp, "\n\n");
             }
 
