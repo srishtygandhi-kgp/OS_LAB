@@ -123,23 +123,24 @@ int main(int argc, char* argv[]){
     // populate the graph
     populate_graph(graph);
 
-    // // run producer
-    // if(fork() == 0) {
-    //     char *args[]={"./producer",NULL};
-    //     execvp(args[0], args);
-    // }
+    // run producer
+    if(fork() == 0) {
+        char *args[]={"./producer",NULL};
+        execvp(args[0], args);
+    }
 
-    // // get flags
-    // int optimize = 0;
-    // if(argc > 1 && strcmp(argv[1], "-optimize") == 0) optimize = 1;
+    // get flags
+    int optimize = 0;
+    if(argc > 1 && strcmp(argv[1], "-optimize") == 0) optimize = 1;
 
-    // // run consumers
-    // for(int i = 1; i <= 10; i++) {
-    //     char consumerID[3];
-    //     sprintf(consumerID, "%d", i);
-    //     if(fork() == 0) {
-    //         char *args[]={"./consumer", consumerID, optimize, NULL};
-    //         execvp(args[0], args);
-    //     }
-    // }
+    // run consumers
+    for(int i = 1; i <= 10; i++) {
+        char consumerID[3], optimizeFlag[2];
+        sprintf(consumerID, "%d", i);
+        sprintf(optimizeFlag, "%d", optimize);
+        if(fork() == 0) {
+            char *args[]={"./consumer", consumerID, optimizeFlag, NULL};
+            execvp(args[0], args);
+        }
+    }
 }

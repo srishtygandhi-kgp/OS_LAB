@@ -104,7 +104,10 @@ int main() {
 //     }
   
   while(1){
-        // update_graph(array);
+        
+        // sleep first
+        sleep(50);
+        
         int m = get_rand_inrange(10,30);
         // printf("\n m -- %d\n",m);
         for(int i = 0; i < m; i++){
@@ -113,7 +116,7 @@ int main() {
             for(int a = 0; a<ROWS; a++){
                 if(array[a][0] == 0){
                     new_node = a;
-                    printf("new_node -- %d", new_node);
+                    // printf("new_node -- %d\n", new_node);
                     break;
                 }
             }
@@ -137,7 +140,7 @@ int main() {
                     }
                 }
                 // existing_node = c;
-                printf("%d -- existing node \n",existing_node);
+                // printf("%d -- existing node \n",existing_node);
                 // add edge to graph
                 if(array[new_node][existing_node+1] == 0){
                     array[new_node][existing_node+1] = 1;
@@ -151,8 +154,6 @@ int main() {
             
 
         }
-        // printf("\n");
-        sleep(50);
     }
 
     if (shmdt(array) == -1) {

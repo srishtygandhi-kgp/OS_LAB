@@ -205,6 +205,13 @@ int main(int argc, char* argv[]) {
         }
         else {
             // trivial run
+            if(totalNodesDone != 0) {
+                for(int i = totalNodesDone; i < ROWS; i++) {
+                    if (array[i][0] > 0 && i % 10 == consumerID-1) {
+                        consumerSet[myConsumerNodeCount++] = i;
+                    }
+                }
+            }
 
             // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
             for(int i = 0; i < myConsumerNodeCount; i++) {
