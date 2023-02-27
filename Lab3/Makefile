@@ -17,7 +17,7 @@ consumer: consumer.o queue.o
 consumer.o: consumer.c macros.h facebook_combined.txt
 	$(CC) $(FLAGS) -c consumer.c -o consumer.o
 
-queue.o: queue.c queue.h
+queue.o: queue.c queue.h macros.h
 	$(CC) $(FLAGS) -c queue.c -o queue.o
 
 clean:

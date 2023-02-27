@@ -2,9 +2,10 @@
 #define _QUEUE_H
 
 #include <stdio.h>
+#include "macros.h"
 
 //size of the queue
-#define size 100
+#define size ROWS
 
 int isQueueEmpty();
 int isQueueFull();

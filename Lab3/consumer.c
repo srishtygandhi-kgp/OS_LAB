@@ -66,6 +66,56 @@ void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp, int nodeIndex) {
 
 }
 
+void appendDij(int(*Graph)[COLS], int existingNode, int *newNodeSet, int newNodes, FILE *fp) {
+
+    for(int i = 0; i < newNodes; i++) {
+        enqueue(newNodeSet[i]);
+    }
+
+    while(!isQueueEmpty()) {
+        int currentNewNode = dequeue();
+
+        if(Graph[currentNewNode][0] == 0) continue;
+
+        int nearestNode = -1;
+        int shortestDist = INFINITE;
+
+        for(int j = 0; j < ROWS; j++) {
+            int weight = Graph[currentNewNode][j+1];
+            if(weight > 0 && shortestDists[existingNode][j] + weight < shortestDist) {
+                nearestNode = j;
+                shortestDist = shortestDists[existingNode][j] + weight;
+            }
+        }
+
+        if(nearestNode == -1) continue;
+
+        parent[existingNode][currentNewNode] = nearestNode;
+        shortestDists[existingNode][currentNewNode] = shortestDist;
+        isAdded[existingNode][currentNewNode] = 1;
+
+        for(int j = 0; j < ROWS; j++) {
+            int weight = Graph[currentNewNode][j+1];
+
+            if(weight > 0 && ((shortestDist+weight)<shortestDists[existingNode][j])) {
+                parent[existingNode][j] = currentNewNode;
+                shortestDists[existingNode][j] = shortestDist+weight;
+
+                enqueue(j);
+            }
+        }
+    }
+
+    for(int i=0; i < ROWS; i++) {
+        if( i != existingNode && shortestDists[existingNode][i] != INFINITE && Graph[i][0]>0) {
+
+            fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, existingNode, shortestDists[existingNode][i]);
+            printPath(parent[existingNode], i, fp);
+            fprintf(fp, "\n");
+        }
+    }
+    fprintf(fp, "\n");
+}
 
 int main(int argc, char* argv[]) {
     int consumerID = atoi(argv[1]);
@@ -135,6 +185,10 @@ int main(int argc, char* argv[]) {
             }
 
             // fix previously computed paths
+            for(int i = 0; i < myConsumerNodeCount; i++) {
+                appendDij(array, consumerSet[i], newNodeSet, newNodes, fp);
+                fprintf(fp, "\n\n");
+            }
 
             // run Djkstra’s shortest path algorithm with all new nodes in consumerSet as source node
             for(int i = 0; i < newNodes; i++) {

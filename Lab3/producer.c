@@ -113,7 +113,7 @@ int main() {
             for(int a = 0; a<ROWS; a++){
                 if(array[a][0] == 0){
                     new_node = a;
-                    // printf("new_node -- %d", new_node);
+                    printf("new_node -- %d", new_node);
                     break;
                 }
             }
@@ -137,7 +137,7 @@ int main() {
                     }
                 }
                 // existing_node = c;
-                // printf("%d -- existing node \n",existing_node);
+                printf("%d -- existing node \n",existing_node);
                 // add edge to graph
                 if(array[new_node][existing_node+1] == 0){
                     array[new_node][existing_node+1] = 1;
