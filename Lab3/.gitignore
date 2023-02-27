@@ -3,3 +3,4 @@ producer
 consumer
 consumer*.txt
 *.o
+debug_producer.txt

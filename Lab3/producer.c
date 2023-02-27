@@ -9,8 +9,6 @@
 #include "macros.h"
 
 int get_rand_inrange(int a, int b) {
-  srand(time(0));  // seed the random number generator with the current time
-
   return a + rand() % (b - a + 1);  // generate a random number in the range [a, b]
 }
 
@@ -71,6 +69,9 @@ void update_graph(int ** input_graph){
 }
 
 int main() {
+
+    srand(time(0));  // seed the random number generator with the current time
+    
     key_t key;
     key = ftok(FILE_PATH_FOR_KEY, PROJECT_ID);
     // printf("%d",key);
@@ -95,12 +96,15 @@ int main() {
         exit(1);
     }
 
-    printf("Producer: Initial sleep.\n"); 
+    char debugFilePath[25];
+    sprintf(debugFilePath, "debug_producer.txt");
   
   while(1){
         
         // sleep first
         sleep(50);
+
+        FILE *debugFP = fopen(debugFilePath, "aw");
 
         int m = get_rand_inrange(10,30);
         // printf("\n m -- %d\n",m);
@@ -110,7 +114,7 @@ int main() {
             for(int a = 0; a<ROWS; a++){
                 if(array[a][0] == 0){
                     new_node = a;
-                    printf("new_node -- %d\n", new_node);
+                    fprintf(debugFP, "new_node -- %d\n", new_node);
                     break;
                 }
             }
@@ -134,7 +138,7 @@ int main() {
                     }
                 }
                 // existing_node = c;
-                printf("\t%d -- existing node \n",existing_node);
+                fprintf(debugFP, "\t%d -- existing node \n",existing_node);
                 // add edge to graph
                 if(array[new_node][existing_node+1] == 0){
                     array[new_node][existing_node+1] = 1;
@@ -146,7 +150,8 @@ int main() {
             }
         }
 
-        printf("Producer: Added %d nodes. Sleeping...\n", m);
+        fprintf(debugFP, "Producer: Added %d nodes. Sleeping...\n\n", m);
+        fclose(debugFP);
     }
 
     if (shmdt(array) == -1) {

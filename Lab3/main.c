@@ -125,7 +125,6 @@ int main(int argc, char* argv[]){
 
     // run producer
     if(fork() == 0) {
-        freopen("debug_producer.txt", "a+", stdout);
         char *args[]={"./producer",NULL};
         execvp(args[0], args);
     }
