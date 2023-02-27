@@ -8,6 +8,7 @@
 #include <math.h>
 
 #include "macros.h"
+#include "queue.h"
 
 int **shortestDists, **isAdded, **parent;
 

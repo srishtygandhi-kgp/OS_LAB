@@ -2,3 +2,4 @@ main
 producer
 consumer
 consumer*.txt
+*.o

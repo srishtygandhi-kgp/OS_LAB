@@ -1,5 +1,10 @@
 #include "queue.h"
 
+// intialize front and rear as 0 for initial queue
+int queue_arr[size];
+int front  = 0;
+int rear   = 0;
+
 // return 1 if queue is empty, else return 0
 int isQueueEmpty()
 {

@@ -11,11 +11,17 @@ main: main.c macros.h facebook_combined.txt
 producer: producer.c macros.h facebook_combined.txt
 	$(CC) $(FLAGS) producer.c -o producer
 
-consumer: consumer.c macros.h facebook_combined.txt
-	$(CC) $(FLAGS) consumer.c -lm -o consumer
+consumer: consumer.o queue.o
+	$(CC) $(FLAGS) consumer.o queue.o -lm -o consumer
+
+consumer.o: consumer.c macros.h facebook_combined.txt
+	$(CC) $(FLAGS) -c consumer.c -o consumer.o
+
+queue.o: queue.c queue.h
+	$(CC) $(FLAGS) -c queue.c -o queue.o
 
 clean:
-	rm main producer consumer consumer*.txt
+	rm main producer consumer consumer*.txt consumer.o queue.o
 .PHONY: clean
 
 kill:
