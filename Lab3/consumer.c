@@ -9,7 +9,7 @@
 
 #include "macros.h"
 
-int shortestDists[ROWS], isAdded[ROWS], parent[ROWS];
+int **shortestDists, **isAdded, **parent;
 
 void printPath(int *parent, int currNode, FILE *fp) {
     if(currNode == -1) return;
@@ -17,47 +17,47 @@ void printPath(int *parent, int currNode, FILE *fp) {
     fprintf(fp, "%d ", currNode);
 }
 
-void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp) {
+void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp, int nodeIndex) {
 
     // printf("source: %d\n", sourceNode);
     for(int i=0; i<ROWS; i++){
-        shortestDists[i] = INFINITE;
-        isAdded[i] = 0;
-        parent[i] = -1;
+        shortestDists[nodeIndex][i] = INFINITE;
+        isAdded[nodeIndex][i] = 0;
+        parent[nodeIndex][i] = -1;
     }
 
-    shortestDists[sourceNode] = 0;
+    shortestDists[nodeIndex][sourceNode] = 0;
     for(int i=1; i < ROWS; i++) {
         int nearestNode = -1;
         int shortestDist = INFINITE;
 
         for(int j = 0; j < ROWS; j++) {
-            if(!isAdded[j] && shortestDists[j] < shortestDist) {
+            if(!isAdded[nodeIndex][j] && shortestDists[nodeIndex][j] < shortestDist) {
                 nearestNode = j;
-                shortestDist = shortestDists[j];
+                shortestDist = shortestDists[nodeIndex][j];
             }
         }
 
         if(nearestNode == -1) continue;
 
-        isAdded[nearestNode] = 1;
+        isAdded[nodeIndex][nearestNode] = 1;
 
         for(int j = 0; j < ROWS; j++) {
             int weight = Graph[nearestNode][j+1];
 
-            if(weight > 0 && ((shortestDist+weight)<shortestDists[j])) {
-                parent[j] = nearestNode;
-                shortestDists[j] = shortestDist+weight;
+            if(weight > 0 && ((shortestDist+weight)<shortestDists[nodeIndex][j])) {
+                parent[nodeIndex][j] = nearestNode;
+                shortestDists[nodeIndex][j] = shortestDist+weight;
             }
         }
         
     }
     
     for(int i=0; i < ROWS; i++) {
-        if( i != sourceNode && shortestDists[i] != INFINITE && Graph[i][0]>0) {
+        if( i != sourceNode && shortestDists[nodeIndex][i] != INFINITE && Graph[i][0]>0) {
 
-            fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, sourceNode, shortestDists[i]);
-            printPath(parent, i, fp);
+            fprintf(fp, "Distance of node %d from source node %d = %d, Path is: ", i, sourceNode, shortestDists[nodeIndex][i]);
+            printPath(parent[nodeIndex], i, fp);
             fprintf(fp, "\n");
         }
     }
@@ -68,6 +68,7 @@ void Dijkstra(int(*Graph)[COLS], int sourceNode, FILE *fp) {
 
 int main(int argc, char* argv[]) {
     int consumerID = atoi(argv[1]);
+    int optimize = atoi(argv[2]);
 
     key_t key;
     key = ftok(FILE_PATH_FOR_KEY, PROJECT_ID);
@@ -91,44 +92,58 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+    shortestDists = (int **)malloc(sizeof(int *)*(ROWS/10));
+    isAdded = (int **)malloc(sizeof(int *)*(ROWS/10));
+    parent = (int **)malloc(sizeof(int *)*(ROWS/10));
+
+    for(int i = 0; i < ROWS/10; i++) {
+        shortestDists[i] = (int *)malloc(sizeof(int)*ROWS);
+        isAdded[i] = (int *)malloc(sizeof(int)*ROWS);
+        parent[i] = (int *)malloc(sizeof(int)*ROWS);
+    }
+
+    int totalNodesDone = 0, newNodes = 0;
+    int consumerSet[ROWS/10], newNodeSet[ROWS/10];
+
     while(1) {
         // Access the shared memory here
         int count = 0;
         for (int i = 0; i < ROWS; i++)
         {
-            if (array[i][0] > 0)
+            if (array[i][0] > 0) {
                 count++;
-        }
-
-        // map the consumer to its set of nodes
-        int nodeShare = (int)(ceil((double)count / 10));
-        int prevNodeShare = (consumerID-1)*nodeShare;
-        int consumerSet[nodeShare];
-        int cnt = 0;
-        
-        int currIndex = 0;
-        for(int i = 0; i < ROWS && prevNodeShare > 0; i++, currIndex++) {
-            if(array[i][0] > 0 && prevNodeShare > 0) prevNodeShare--;
-        }
-
-        for (int i = currIndex; i < ROWS && cnt < nodeShare; i++)
-        {
-            if (array[i][0] > 0)
-            {   
-                // printf("array[%d][%d] = %d", i, 1, array[i][1]);
-                consumerSet[cnt++] = i;
-                // printf("putting node %d in consumer set\n", i);
             }
         }
+
+        newNodes = count - totalNodesDone;
+
+        int myConsumerNodeCount = 0;
+        for(int i = 0; i < ROWS; i++) {
+            if (array[i][0] > 0 && i%10 == consumerID-1) consumerSet[myConsumerNodeCount++] = i;
+        }
+
         char filepath[25];
         sprintf(filepath, "consumer%d.txt", consumerID);
-        // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
         FILE *fp = fopen(filepath, "aw");
-        for(int i = 0; i < cnt; i++) {
-            // make every element of consumerSet as source node for dijkstra
-            Dijkstra(array, consumerSet[i], fp);
-            fprintf(fp, "\n\n");
+
+        if(optimize) {
+            // optimized run
+
         }
+        else {
+            // trivial run
+
+            // run Djkstra’s shortest path algorithm with all nodes in consumerSet as source node
+            for(int i = 0; i < myConsumerNodeCount; i++) {
+
+                // make every element of consumerSet as source node for dijkstra
+                Dijkstra(array, consumerSet[i], fp, i);
+                fprintf(fp, "\n\n");
+            }
+        }
+
+        totalNodesDone = count;
+
         fclose(fp);
 
         sleep(30);

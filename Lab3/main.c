@@ -98,7 +98,7 @@ void populate_graph(int ** graph_input){
 }
 
 
-int main(){
+int main(int argc, char* argv[]){
     // calculate the size of graph
     // graph_size[0] --> max_num of nodes
     // graph_size[1] --> max_length of nodes
@@ -123,19 +123,23 @@ int main(){
     // populate the graph
     populate_graph(graph);
 
-    // run producer
-    if(fork() == 0) {
-        char *args[]={"./producer",NULL};
-        execvp(args[0], args);
-    }
+    // // run producer
+    // if(fork() == 0) {
+    //     char *args[]={"./producer",NULL};
+    //     execvp(args[0], args);
+    // }
 
-    // run consumers
-    for(int i = 1; i <= 10; i++) {
-        char consumerID[3];
-        sprintf(consumerID, "%d", i);
-        if(fork() == 0) {
-            char *args[]={"./consumer", consumerID, NULL};
-            execvp(args[0], args);
-        }
-    }
+    // // get flags
+    // int optimize = 0;
+    // if(argc > 1 && strcmp(argv[1], "-optimize") == 0) optimize = 1;
+
+    // // run consumers
+    // for(int i = 1; i <= 10; i++) {
+    //     char consumerID[3];
+    //     sprintf(consumerID, "%d", i);
+    //     if(fork() == 0) {
+    //         char *args[]={"./consumer", consumerID, optimize, NULL};
+    //         execvp(args[0], args);
+    //     }
+    // }
 }
