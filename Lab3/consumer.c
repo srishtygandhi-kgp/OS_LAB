@@ -102,12 +102,17 @@ int main(int argc, char* argv[]) {
         parent[i] = (int *)malloc(sizeof(int)*ROWS);
     }
 
-    int totalNodesDone = 0, newNodes = 0;
+    int totalNodesDone = 0;
     int consumerSet[ROWS/10], newNodeSet[ROWS/10];
+
+    int myConsumerNodeCount = 0;
+    for(int i = 0; i < ROWS; i++) {
+        if (array[i][0] > 0 && i%10 == consumerID-1) consumerSet[myConsumerNodeCount++] = i;
+    }
 
     while(1) {
         // Access the shared memory here
-        int count = 0;
+        int count = 0, newNodes = 0;
         for (int i = 0; i < ROWS; i++)
         {
             if (array[i][0] > 0) {
@@ -115,20 +120,31 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        newNodes = count - totalNodesDone;
-
-        int myConsumerNodeCount = 0;
-        for(int i = 0; i < ROWS; i++) {
-            if (array[i][0] > 0 && i%10 == consumerID-1) consumerSet[myConsumerNodeCount++] = i;
-        }
-
         char filepath[25];
         sprintf(filepath, "consumer%d.txt", consumerID);
         FILE *fp = fopen(filepath, "aw");
 
-        if(optimize) {
+        if(optimize && totalNodesDone != 0) {
             // optimized run
 
+            for(int i = totalNodesDone; i < ROWS; i++) {
+                if (array[i][0] > 0) {
+                    newNodeSet[newNodes++] = i;
+                }
+            }
+
+            // fix previously computed paths
+
+            // run Djkstra’s shortest path algorithm with all new nodes in consumerSet as source node
+            for(int i = 0; i < newNodes; i++) {
+
+                if(newNodeSet[i] % 10 == consumerID-1) {
+                    Dijkstra(array, newNodeSet[i], fp, myConsumerNodeCount);
+                    fprintf(fp, "\n\n");
+
+                    consumerSet[myConsumerNodeCount++] = newNodeSet[i];
+                }
+            }
         }
         else {
             // trivial run
