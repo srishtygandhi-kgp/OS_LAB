@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
     // graph_size[1] --> max_length of nodes
     int graph_size[2];
     calculate_num_nodes(FILE_PATH, graph_size);
-    printf("%d %d\n", graph_size[0], graph_size[1]);
+    printf("Number of initial nodes -> %d\nMax degree -> %d\n", graph_size[0], graph_size[1]);
     // create a shared memory, --> 2d array of double size, initialised by -1
     
     key_t key ;
@@ -125,6 +125,7 @@ int main(int argc, char* argv[]){
 
     // run producer
     if(fork() == 0) {
+        freopen("debug_producer.txt", "a+", stdout);
         char *args[]={"./producer",NULL};
         execvp(args[0], args);
     }

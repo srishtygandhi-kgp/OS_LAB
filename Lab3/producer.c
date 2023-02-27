@@ -95,19 +95,13 @@ int main() {
         exit(1);
     }
 
-    // Access the shared memory here
-//     for(int i = 0; i < 30; i++){
-//         for(int j = 0; j < 10; j++){
-//             printf("%d ",array[i][j] );
-//         }
-//         printf("\n");
-//     }
+    printf("Producer: Initial sleep.\n"); 
   
   while(1){
         
         // sleep first
         sleep(50);
-        
+
         int m = get_rand_inrange(10,30);
         // printf("\n m -- %d\n",m);
         for(int i = 0; i < m; i++){
@@ -116,7 +110,7 @@ int main() {
             for(int a = 0; a<ROWS; a++){
                 if(array[a][0] == 0){
                     new_node = a;
-                    // printf("new_node -- %d\n", new_node);
+                    printf("new_node -- %d\n", new_node);
                     break;
                 }
             }
@@ -140,7 +134,7 @@ int main() {
                     }
                 }
                 // existing_node = c;
-                // printf("%d -- existing node \n",existing_node);
+                printf("\t%d -- existing node \n",existing_node);
                 // add edge to graph
                 if(array[new_node][existing_node+1] == 0){
                     array[new_node][existing_node+1] = 1;
@@ -150,10 +144,9 @@ int main() {
                     // printf("added new edge\n");
                 }
             }
-
-            
-
         }
+
+        printf("Producer: Added %d nodes. Sleeping...\n", m);
     }
 
     if (shmdt(array) == -1) {

@@ -21,7 +21,7 @@ queue.o: queue.c queue.h macros.h
 	$(CC) $(FLAGS) -c queue.c -o queue.o
 
 clean:
-	rm main producer consumer consumer*.txt consumer.o queue.o
+	rm main producer consumer consumer*.txt consumer.o queue.o debug_producer.txt
 .PHONY: clean
 
 kill:
