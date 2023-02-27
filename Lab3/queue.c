@@ -37,7 +37,15 @@ void enqueue(int ele)
    if(isQueueFull() == 1)
        printf("Queue is Full\n");
    else
-   {
+   {   
+       for(int i = front; i < rear; i++)
+       {
+            if(queue_arr[i] == ele)
+            {
+                printf("element already exists\n");
+                return;
+            }
+       }
        queue_arr[rear] = ele;
        rear++;
    }

@@ -81,6 +81,7 @@ void appendDij(int(*Graph)[COLS], int existingNode, int existingNodeIndex, int *
         int shortestDist = INFINITE;
 
         for(int j = 0; j < ROWS; j++) {
+            if(Graph[j][0] == 0) continue;
             int weight = Graph[currentNewNode][j+1];
             if(weight > 0 && shortestDists[existingNodeIndex][j] + weight < shortestDist) {
                 nearestNode = j;
@@ -95,6 +96,7 @@ void appendDij(int(*Graph)[COLS], int existingNode, int existingNodeIndex, int *
         isAdded[existingNodeIndex][currentNewNode] = 1;
 
         for(int j = 0; j < ROWS; j++) {
+            if(Graph[j][0] == 0) continue;
             int weight = Graph[currentNewNode][j+1];
 
             if(weight > 0 && ((shortestDist+weight)<shortestDists[existingNodeIndex][j])) {
