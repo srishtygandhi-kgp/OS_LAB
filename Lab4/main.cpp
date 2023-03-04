@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <wait.h>
 
-#include "macros.cxx"
+#include "macros.h"
 using namespace std;
 
 void populate_graph(vector<vector<int>> &graph_input){
@@ -33,13 +33,25 @@ void populate_graph(vector<vector<int>> &graph_input){
 
         graph_input[first].push_back(second);
         graph_input[second].push_back(first);
+
+        nodes[first].degree++;
+        nodes[second].degree++;
+
     }
 
 }
 
 int main(){
     
+    srand(time(0));  // seed the random number generator with the current time
     vector<vector<int>> graph(ROWS);
+
+    for(int i=0; i<ROWS; i++) {
+        nodes[i].id = i;
+        int randInt = rand()%2;
+        nodes[i].priority = randInt;
+        nodes[i].degree = 0;
+    }
 
     // populate the graph
     populate_graph(graph);
