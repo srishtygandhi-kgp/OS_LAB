@@ -2,12 +2,12 @@ CC=g++
 FLAGS=-Wall
 
 build:
-	make main
+	make sns
 .PHONY: build
 
-main: main.cpp macros.h musae_git_edges.csv
-	$(CC) $(FLAGS) main.cpp -o main
+main: sns.cpp macros.h musae_git_edges.csv
+	$(CC) $(FLAGS) sns.cpp -o sns
 
 clean:
-	rm main 
+	rm sns 
 .PHONY: clean
