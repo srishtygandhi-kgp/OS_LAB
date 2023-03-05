@@ -72,12 +72,26 @@ void *simulateUserAction(void *arg) {
                 GlbWallQueue.push(newAction);
 
                 // print the details of new action to sns.log
-                fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", nodeId, num_action, nodeId, nodes[nodeId].degree, newAction.action_id,newAction.action_type,newAction.time_stamp);
+                fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id,newAction.action_type,newAction.time_stamp);
             }
         }
         // sleep for 2 minutes after pushing all actions
         sleep(120);
     }
+}
+
+void *pushUpdate(void *arg) {
+    int id = *(int *)arg;
+
+    // worker threads come here access the queue (critical)and
+    // dequeue "Action". Later push the actions to neighours feed
+    // need to use pthread_cond_signal to check if any change in the shared queue
+
+}
+
+void *readPost(void *arg) {
+    int id = *(int *)arg;
+
 
 }
 
@@ -116,6 +130,22 @@ int main(){
     }
     // block until the thread completes
     pthread_join(userSimulator, NULL);
+
+    // create 10 readPost 25 pushUpdate thread
+    pthread_t readPost_pool[10];
+    pthread_t pushUpdate_pool[25];
+
+    // initialize pthread mutex protecting GlbWallQueue
+    pthread_mutex_init(&lock_wallq, NULL);
+    for(int i=0; i < 25; i++) {
+        int *id = new int(i);
+        pthread_create(&pushUpdate_pool[i], NULL, pushUpdate, id);
+    }
+
+    for(int i=0; i < 10; i++) {
+        int *id = new int(i);
+        pthread_create(&pushUpdate_pool[i], NULL, readPost, id);
+    }
 
     fclose(fp);
     return 0;

@@ -33,4 +33,6 @@ vector<Node> nodes(37700);
 // global queue to be monitored by pushUpdate thread
 queue <Action> GlbWallQueue;
 int actionCnt;
+pthread_mutex_t lock_wallq;
+
 #endif
