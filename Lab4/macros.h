@@ -29,6 +29,7 @@ typedef struct node {
 } Node;
 
 vector<Node> nodes(37700);
+vector<vector<int>> graph(ROWS);
 // vector<Action> action;
 // global queue to be monitored by pushUpdate thread
 queue <Action> GlbWallQueue;

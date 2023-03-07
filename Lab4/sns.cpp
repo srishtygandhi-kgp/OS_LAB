@@ -8,21 +8,27 @@
 
 #include "macros.h"
 using namespace std;
+FILE *fp;
 
-void populate_graph(vector<vector<int>> &graph_input){
+pthread_cond_t cv_empty;
+
+void populate_graph(vector<vector<int>> &graph_input)
+{
     // reads the file and populates the graph
     // assuming the edges are non directed
 
     FILE *file = fopen(FILE_PATH, "r");
-    if (file == NULL) {
+    if (file == NULL)
+    {
         printf("Unable to open file %s\n", FILE_PATH);
-        return ;
+        return;
     }
     char line[20];
     fgets(line, 20, file);
-    cout<<line<<"\n"; 
+    cout << line << "\n";
 
-    while (fgets(line, 20, file) ) {
+    while (fgets(line, 20, file))
+    {
         char *token = strtok(line, ",");
         int first = atoi(token);
         token = strtok(NULL, ",");
@@ -33,28 +39,39 @@ void populate_graph(vector<vector<int>> &graph_input){
 
         nodes[first].degree++;
         nodes[second].degree++;
-
     }
-
 }
 
-void *simulateUserAction(void *arg) {
+void *simulateUserAction(void *arg)
+{
     FILE *fp = (FILE *)arg;
     int nodeId, n, degree, num_action, action_type, cnt;
-    while(1) {    
+    while (1)
+    {   
+        if (pthread_mutex_lock(&lock_wallq))
+        {
+            perror("wall queue lock failed\n");
+            exit(1);
+        }
+        else {
+            fprintf(fp, "userSimulator thread locked the wall queue\n");
+        }
+
         // select 100 random nodes
-        for(int i=0; i <100; i++) {
+        for (int i = 0; i < 100; i++)
+        {
             // select a random node id
-            nodeId = rand()%37700;
+            nodeId = rand() % 37700;
             degree = nodes[nodeId].degree;
             degree = floor(log2(degree));
-            num_action = PCONSTANT*degree;
+            num_action = PCONSTANT * degree;
 
             fprintf(fp, "\nNode id selected by userSimulator: %d\nNo of Actions generated: %d\nDegree of node id %d: %d\n", nodeId, num_action, nodeId, nodes[nodeId].degree);
-            for(int j=0; j < num_action; j++) {
+            for (int j = 0; j < num_action; j++)
+            {
                 Action newAction;
                 newAction.user_id = nodeId;
-                action_type = rand()%3;
+                action_type = rand() % 3;
                 newAction.action_type = action_type;
 
                 // action_id is a countervariable associated with each node and specific to each action
@@ -72,36 +89,106 @@ void *simulateUserAction(void *arg) {
                 GlbWallQueue.push(newAction);
 
                 // print the details of new action to sns.log
-                fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id,newAction.action_type,newAction.time_stamp);
+                fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id, newAction.action_type, newAction.time_stamp);
             }
+        }
+
+        if (pthread_mutex_unlock(&lock_wallq))
+        {
+            perror("wall queue unlock failed\n");
+            exit(1);
+        }
+        else {
+            fprintf(fp, "userSimulator thread unlocked the wall queue\n");
         }
         // sleep for 2 minutes after pushing all actions
         sleep(120);
     }
 }
 
-void *pushUpdate(void *arg) {
+void *pushUpdate(void *arg)
+{
+
     int id = *(int *)arg;
+    bool got_action = false;
+    Action newAction;
 
-    // worker threads come here access the queue (critical)and
-    // dequeue "Action". Later push the actions to neighours feed
-    // need to use pthread_cond_signal to check if any change in the shared queue
+    // worker threads come here access the queue (critical) and dequeue "Action". 
+    // If the queue is empty they wait on the condition using pthread_cond_wait 
+    // variable else the thread deques an element from queue and signals after checking again for the condition
+    // After that the thread pushes the actions to neighours feed
 
+    while (1)
+    {
+        if (pthread_mutex_lock(&lock_wallq))
+        {
+            perror("wall queue lock failed\n");
+            exit(1);
+        }
+        else {
+            fprintf(fp, "Thread id %d locked the wall queue\n", id);
+        }
+
+        if (!GlbWallQueue.empty())
+        {
+            newAction = GlbWallQueue.front();
+            got_action = true;
+            GlbWallQueue.pop();
+
+            // if condition is reached then send signal
+            if (!GlbWallQueue.empty())
+            {
+                pthread_cond_signal(&cv_empty);
+                fprintf(fp, "Thread id %d sent condition signal.\n", id);
+            }
+        }
+        else
+        {
+            // wait for some actions to be added to queue
+            while (GlbWallQueue.empty())
+            {
+                fprintf(fp, "Thread id %d going into wait for actions to be added in queue...\n", id);
+                pthread_cond_wait(&cv_empty, &lock_wallq);
+            }
+        }
+
+        if (pthread_mutex_unlock(&lock_wallq))
+        {
+            perror("wall queue unlock failed\n");
+            exit(1);
+        }
+        else {
+            fprintf(fp, "Thread id %d unlocked the wall queue\n", id);
+        }
+
+        // do the work
+        if (got_action)
+        {
+            // add element to feed queue of each neighbour
+            for (int i = 0; i < graph[newAction.user_id].size(); i++)
+            {
+                int neighbourId = graph[newAction.user_id][i];
+                nodes[neighbourId].FeedQueue.push(newAction);
+                fprintf(fp, "Thread id %d added action of Node id %d to feed of Node id %d\n", id, newAction.user_id, neighbourId);
+            }
+            got_action = false;
+        }
+    }
 }
 
-void *readPost(void *arg) {
-    int id = *(int *)arg;
+// void *readPost(void *arg) {
+//     int id = *(int *)arg;
 
+// }
 
-}
+int main()
+{
 
-int main(){
-    
-    srand(time(0));  // seed the random number generator with the current time
-    vector<vector<int>> graph(ROWS);
+    srand(time(0)); // seed the random number generator with the current time
 
-    for(int i=0; i<ROWS; i++) {
-        int randInt = rand()%2;
+    for (int i = 0; i < ROWS; i++)
+    {
+        int randInt = rand() % 2;
         nodes[i].priority = randInt;
         nodes[i].degree = 0;
         // No of "post", "comment", "like" set to 0 for all nodes
@@ -114,40 +201,58 @@ int main(){
     populate_graph(graph);
 
     int max_degree = -1;
-    for(int i=0; i<ROWS; i++) {        
+    for (int i = 0; i < ROWS; i++)
+    {
         max_degree = max(max_degree, nodes[i].degree);
     }
     printf("Number of nodes -> %ld\n", graph.size());
-    cout<< "Maximum degree of node: " << max_degree<<"\n";
+    cout << "Maximum degree of node: " << max_degree << "\n";
 
     actionCnt = 0;
     int return_value;
     pthread_t userSimulator;
-    FILE *fp = fopen(FILE_PATH_LOG, "aw");
-    if ((return_value = pthread_create(&userSimulator, NULL, simulateUserAction, fp))) {
-      perror("pthread_create\n");
-      exit(0);
-    }
-    // block until the thread completes
-    pthread_join(userSimulator, NULL);
+    pthread_attr_t attr;
 
+    // explicitly creating threads in a joinable state 
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+    fp = fopen(FILE_PATH_LOG, "aw");
+    if ((return_value = pthread_create(&userSimulator, &attr, simulateUserAction, fp)))
+    {
+        perror("pthread_create\n");
+        exit(0);
+    }
     // create 10 readPost 25 pushUpdate thread
     pthread_t readPost_pool[10];
     pthread_t pushUpdate_pool[25];
 
-    // initialize pthread mutex protecting GlbWallQueue
+    // initialize pthread mutex protecting GlbWallQueue and condition variable objects
     pthread_mutex_init(&lock_wallq, NULL);
-    for(int i=0; i < 25; i++) {
-        int *id = new int(i);
-        pthread_create(&pushUpdate_pool[i], NULL, pushUpdate, id);
+    pthread_cond_init(&cv_empty, NULL);
+
+    for (int i = 0; i < 25; i++)
+    {
+        int tid = i + 1;
+        pthread_create(&pushUpdate_pool[i], &attr, pushUpdate, &tid);
     }
 
-    for(int i=0; i < 10; i++) {
-        int *id = new int(i);
-        pthread_create(&pushUpdate_pool[i], NULL, readPost, id);
+    // block until the thread completes
+    pthread_join(userSimulator, NULL);
+
+    for (int i = 0; i < 25; ++i)
+    {
+        pthread_join(pushUpdate_pool[i], NULL);
     }
+    // for(int i=0; i < 10; i++) {
+    //     int *id = new int(i);
+    //     pthread_create(&pushUpdate_pool[i], &attr, readPost, id);
+    // }
 
     fclose(fp);
+    // Clean up and exit 
+    // pthread_mutex_destroy(&lock_wallq);
+    // pthread_cond_destroy(cv_empty);
+    // pthread_exit(NULL);
     return 0;
-    
 }
