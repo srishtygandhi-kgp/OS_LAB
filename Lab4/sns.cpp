@@ -48,24 +48,23 @@ void *simulateUserAction(void *arg)
     int nodeId, n, degree, num_action, action_type, cnt;
     while (1)
     {   
-        if (pthread_mutex_lock(&lock_wallq))
-        {
-            perror("wall queue lock failed\n");
-            exit(1);
-        }
-        else {
-            fprintf(fp, "userSimulator thread locked the wall queue\n");
-        }
-
         // select 100 random nodes
         for (int i = 0; i < 100; i++)
         {
             // select a random node id
             nodeId = rand() % 37700;
             degree = nodes[nodeId].degree;
-            degree = floor(log2(degree));
+            degree = 1 + floor(log2(degree));
             num_action = PCONSTANT * degree;
 
+            if (pthread_mutex_lock(&lock_wallq))
+            {
+                perror("wall queue lock failed\n");
+                exit(1);
+            }
+            else {
+                fprintf(fp, "userSimulator thread locked the wall queue\n");
+            }
             fprintf(fp, "\nNode id selected by userSimulator: %d\nNo of Actions generated: %d\nDegree of node id %d: %d\n", nodeId, num_action, nodeId, nodes[nodeId].degree);
             for (int j = 0; j < num_action; j++)
             {
@@ -91,19 +90,19 @@ void *simulateUserAction(void *arg)
                 // print the details of new action to sns.log
                 fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id, newAction.action_type, newAction.time_stamp);
             }
-        }
-
-        if (pthread_mutex_unlock(&lock_wallq))
-        {
-            perror("wall queue unlock failed\n");
-            exit(1);
-        }
-        else {
-            fprintf(fp, "userSimulator thread unlocked the wall queue\n");
+            if (pthread_mutex_unlock(&lock_wallq))
+            {
+                perror("wall queue unlock failed\n");
+                exit(1);
+            }
+            else {
+                fprintf(fp, "userSimulator thread unlocked the wall queue\n");
+            }
         }
         // sleep for 2 minutes after pushing all actions
         sleep(120);
     }
+    pthread_exit(NULL);
 }
 
 void *pushUpdate(void *arg)
@@ -138,7 +137,7 @@ void *pushUpdate(void *arg)
             // if condition is reached then send signal
             if (!GlbWallQueue.empty())
             {
-                pthread_cond_signal(&cv_empty);
+                pthread_cond_broadcast(&cv_empty);
                 fprintf(fp, "Thread id %d sent condition signal.\n", id);
             }
         }
@@ -174,6 +173,7 @@ void *pushUpdate(void *arg)
             got_action = false;
         }
     }
+    pthread_exit(NULL);
 }
 
 // void *readPost(void *arg) {
@@ -213,33 +213,31 @@ int main()
     pthread_t userSimulator;
     pthread_attr_t attr;
 
+    // initialize pthread mutex protecting GlbWallQueue and condition variable objects
+    pthread_mutex_init(&lock_wallq, NULL);
+    pthread_cond_init(&cv_empty, NULL);
+
     // explicitly creating threads in a joinable state 
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     fp = fopen(FILE_PATH_LOG, "aw");
-    if ((return_value = pthread_create(&userSimulator, &attr, simulateUserAction, fp)))
+    if ((return_value = pthread_create(&userSimulator, &attr, simulateUserAction, (void *)fp)))
     {
         perror("pthread_create\n");
         exit(0);
     }
     // create 10 readPost 25 pushUpdate thread
-    pthread_t readPost_pool[10];
+    // pthread_t readPost_pool[10];
     pthread_t pushUpdate_pool[25];
-
-    // initialize pthread mutex protecting GlbWallQueue and condition variable objects
-    pthread_mutex_init(&lock_wallq, NULL);
-    pthread_cond_init(&cv_empty, NULL);
 
     for (int i = 0; i < 25; i++)
     {
         int tid = i + 1;
         pthread_create(&pushUpdate_pool[i], &attr, pushUpdate, &tid);
     }
-
     // block until the thread completes
     pthread_join(userSimulator, NULL);
-
     for (int i = 0; i < 25; ++i)
     {
         pthread_join(pushUpdate_pool[i], NULL);
@@ -252,7 +250,7 @@ int main()
     fclose(fp);
     // Clean up and exit 
     // pthread_mutex_destroy(&lock_wallq);
-    // pthread_cond_destroy(cv_empty);
+    // pthread_cond_destroy(&cv_empty);
     // pthread_exit(NULL);
     return 0;
 }

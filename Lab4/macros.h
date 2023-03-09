@@ -9,8 +9,8 @@ using namespace std;
 #define MAX_INT 37700
 #define FILE_PATH_LOG "sns.log"
 #define PROJECT_ID 1
-#define PCONSTANT 1
-#define ROWS 37700 // an arbitrarily choosen number larger than the initial number of nodes
+#define PCONSTANT 10
+#define ROWS 37700  // initial number of nodes
 #define INFINITE 99999
 
 typedef struct actionStruct {
