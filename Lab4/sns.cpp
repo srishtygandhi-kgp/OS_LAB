@@ -11,6 +11,7 @@ using namespace std;
 FILE *fp;
 
 pthread_cond_t cv_empty;
+pthread_cond_t feed_empty[NUM_READ_THREADS];
 
 void populate_graph(vector<vector<int>> &graph_input)
 {
@@ -125,7 +126,7 @@ void *pushUpdate(void *arg)
             exit(1);
         }
         else {
-            fprintf(fp, "Thread id %d locked the wall queue\n", id);
+            fprintf(fp, "[pushUpdate] Thread id %d locked the wall queue\n", id);
         }
 
         if (!GlbWallQueue.empty())
@@ -138,7 +139,7 @@ void *pushUpdate(void *arg)
             if (!GlbWallQueue.empty())
             {
                 pthread_cond_broadcast(&cv_empty);
-                fprintf(fp, "Thread id %d sent condition signal.\n", id);
+                fprintf(fp, "[pushUpdate] Thread id %d sent condition signal.\n", id);
             }
         }
         else
@@ -146,7 +147,7 @@ void *pushUpdate(void *arg)
             // wait for some actions to be added to queue
             while (GlbWallQueue.empty())
             {
-                fprintf(fp, "Thread id %d going into wait for actions to be added in queue...\n", id);
+                fprintf(fp, "[pushUpdate] Thread id %d going into wait for actions to be added in queue...\n", id);
                 pthread_cond_wait(&cv_empty, &lock_wallq);
             }
         }
@@ -157,7 +158,7 @@ void *pushUpdate(void *arg)
             exit(1);
         }
         else {
-            fprintf(fp, "Thread id %d unlocked the wall queue\n", id);
+            fprintf(fp, "[pushUpdate] Thread id %d unlocked the wall queue\n", id);
         }
 
         // do the work
@@ -167,8 +168,33 @@ void *pushUpdate(void *arg)
             for (int i = 0; i < graph[newAction.user_id].size(); i++)
             {
                 int neighbourId = graph[newAction.user_id][i];
-                nodes[neighbourId].FeedQueue.push(newAction);
-                fprintf(fp, "Thread id %d added action of Node id %d to feed of Node id %d\n", id, newAction.user_id, neighbourId);
+                int _id = neighbourId % NUM_READ_THREADS;
+
+                if ( pthread_mutex_lock(&lock_feedq[_id]) ) {
+                    perror("feed queue lock failed");
+                    exit(1);
+                } 
+                else {
+                    fprintf(fp, "[pushUpdate] Thread id %d locked the feed queue\n", id);
+                }
+
+                // TODO: add a mutex to protect the feed-queue
+                nodes[neighbourId].FeedQueue.push(newAction);                
+                feed_queue[_id].push(neighbourId);
+
+
+                // adding a pthread_cond_signal/broadcast to wake up
+                // stuck readPost threads
+                fprintf(fp, "[pushUpdate] Thread id %d added action of Node id %d to feed of Node id %d\n", id, newAction.user_id, neighbourId);
+
+                pthread_cond_broadcast(&feed_empty[_id]);
+                fprintf(fp, "[pushUpdate] This thread %d sent the broadcast\n", id);
+
+                if ( pthread_mutex_unlock(&lock_feedq[_id]) )
+                {
+                    perror("wall queue unlock failed\n");
+                    exit(1);
+                }
             }
             got_action = false;
         }
@@ -176,10 +202,61 @@ void *pushUpdate(void *arg)
     pthread_exit(NULL);
 }
 
-// void *readPost(void *arg) {
-//     int id = *(int *)arg;
+void *readPost(void *arg) {
+    int id = *(int *)arg;
 
-// }
+    /**
+     * We're basically dividing the nodes up into 10 classes
+     * and making the threads take up one class each.
+     * 
+     * For each of these classes, there is a mutex defined,
+     * when we access a particular node's feed-queue, we will acquire
+     * the lock, and update it, and then free the lock
+    */
+    
+    // getting the lock to wait on
+    pthread_mutex_t feed_lock = lock_feedq[id - 1];
+
+    while (1) {
+    
+        // waiting on its feed-queue's lock
+        if ( pthread_mutex_lock(&feed_lock) ) {
+            perror("feed queue lock failed");
+            exit(1);
+        } 
+        else {
+            fprintf(fp, "[readPost] Thread id %d locked the feed queue\n", id);
+        }
+
+        while (!feed_queue[id - 1].empty()) {
+
+            int node = feed_queue[id - 1].front();
+            feed_queue[id - 1].pop();
+
+            nodes[node].FeedQueue.pop();
+
+            fprintf(fp, "[readPost] Thread id %d popped %d node's Feed\n", id, node);
+        }
+
+        while (feed_queue[id - 1].empty())
+        {
+            fprintf(fp, "[readPost] Thread id %d going into wait for actions to be added in queue...\n", id);
+            pthread_cond_wait(&feed_empty[id - 1], &feed_lock);
+        }
+
+        // unlocking its feed-queue's lock
+        if ( pthread_mutex_unlock(&feed_lock) ) {
+            perror("feed queue lock failed");
+            exit(1);
+        } 
+        else {
+            fprintf(fp, "[readPost] Thread id %d unlocked the feed queue\n", id);
+        }
+    }
+
+
+    pthread_exit(NULL);
+}
 
 int main()
 {
@@ -228,7 +305,7 @@ int main()
         exit(0);
     }
     // create 10 readPost 25 pushUpdate thread
-    // pthread_t readPost_pool[10];
+    pthread_t readPost_pool[10];
     pthread_t pushUpdate_pool[25];
 
     for (int i = 0; i < 25; i++)
@@ -236,16 +313,20 @@ int main()
         int tid = i + 1;
         pthread_create(&pushUpdate_pool[i], &attr, pushUpdate, &tid);
     }
+    
+    int thread_ids[NUM_READ_THREADS];
+    for(int i=0; i < 10; i++) {
+        
+        thread_ids[i] = i + 1;
+        pthread_create(&readPost_pool[i], &attr, readPost, &thread_ids[i]);
+    }
+    
     // block until the thread completes
     pthread_join(userSimulator, NULL);
     for (int i = 0; i < 25; ++i)
     {
         pthread_join(pushUpdate_pool[i], NULL);
     }
-    // for(int i=0; i < 10; i++) {
-    //     int *id = new int(i);
-    //     pthread_create(&pushUpdate_pool[i], &attr, readPost, id);
-    // }
 
     fclose(fp);
     // Clean up and exit 

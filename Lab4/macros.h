@@ -12,6 +12,7 @@ using namespace std;
 #define PCONSTANT 10
 #define ROWS 37700  // initial number of nodes
 #define INFINITE 99999
+#define NUM_READ_THREADS 10
 
 typedef struct actionStruct {
     int user_id;
@@ -34,6 +35,10 @@ vector<vector<int>> graph(ROWS);
 // global queue to be monitored by pushUpdate thread
 queue <Action> GlbWallQueue;
 int actionCnt;
+
+queue<int> feed_queue[NUM_READ_THREADS];
+
 pthread_mutex_t lock_wallq;
+pthread_mutex_t lock_feedq[NUM_READ_THREADS];
 
 #endif
