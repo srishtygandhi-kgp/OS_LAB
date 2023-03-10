@@ -289,26 +289,26 @@ void log_action(Action action, int thread_id, int node_id) {
     switch(action.action_type) {
 
         case 1: // POST
-            fprintf(fp, "Thread-%d, read a POST from Node-%d's feed-queue\n"
+            fprintf(fp, "[readPost] Thread-%d, read a POST from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
-            printf("Thread-%d, read a POST from Node-%d's feed-queue\n"
+            printf("[readPost] Thread-%d, read a POST from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
             break;
         case 2: // COMMENT
-            fprintf(fp, "Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
+            fprintf(fp, "[readPost] Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
-            printf("Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
+            printf("[readPost] Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
             break;
         default: // LIKE
-            fprintf(fp, "Thread-%d, read a LIKE from Node-%d's feed-queue\n"
+            fprintf(fp, "[readPost] Thread-%d, read a LIKE from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
-            printf("Thread-%d, read a LIKE from Node-%d's feed-queue\n"
+            printf("[readPost] Thread-%d, read a LIKE from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
 
@@ -486,10 +486,19 @@ int main()
         pthread_join(pushUpdate_pool[i], NULL);
     }
 
+    pthread_join(userSimulator, NULL);
+    for (int i = 0; i < 10; ++i)
+    {
+        pthread_join(readPost_pool[i], NULL);
+    }
+    
     fclose(fp);
     // Clean up and exit 
-    // pthread_mutex_destroy(&lock_wallq);
-    // pthread_cond_destroy(&cv_empty);
+    pthread_mutex_destroy(&lock_wallq);
+    pthread_cond_destroy(&cv_empty);
+    for(int i=0; i < NUM_READ_THREADS; i++) {
+        pthread_mutex_destroy(&lock_feedq[i]);
+    }
     // pthread_exit(NULL);
     return 0;
 }
