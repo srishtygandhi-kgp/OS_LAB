@@ -15,10 +15,17 @@ using namespace std;
 #define NUM_READ_THREADS 10
 
 typedef struct actionStruct {
+    int priority_type;              // these are case dependent
+    int priority_val;               // used for ordering per-case basis
     int user_id;
     int action_id;
     int action_type;
     unsigned int time_stamp;
+
+    // creating a priority queue
+    bool operator<(const actionStruct& rhs) const {
+        return (priority_type) ? (time_stamp < rhs.time_stamp) : (priority_val < rhs.priority_val);
+    }
 } Action;
 
 typedef struct node {
@@ -26,11 +33,14 @@ typedef struct node {
     int degree;
     int action_id[3]; // action_id[0] for "post", action_id[1] for "comment", action_id[2] for "like"
     queue<Action> WallQueue;
-    queue<Action> FeedQueue;
+    priority_queue<Action> FeedQueue;
 } Node;
 
 vector<Node> nodes(37700);
-vector<vector<int>> graph(ROWS);
+vector<vector<int> > graph(ROWS);
+
+vector<vector<int> > priority_score(ROWS);
+
 // vector<Action> action;
 // global queue to be monitored by pushUpdate thread
 queue <Action> GlbWallQueue;

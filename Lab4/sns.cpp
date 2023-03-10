@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include <unistd.h>
+#include <bits/stdc++.h>
 
 #include "macros.h"
 using namespace std;
@@ -12,6 +13,32 @@ FILE *fp;
 
 pthread_cond_t cv_empty;
 pthread_cond_t feed_empty[NUM_READ_THREADS];
+
+void calculate_priority(vector<vector<int>> &graph, vector<vector<int>> &priority_score){
+    for(int i = 0; i <ROWS; i++){
+
+        vector<int> v1 = graph[i];
+        for(int id: graph[i]){
+            vector<int> v2 = graph[id];
+            
+            vector<int> v3(v1.size() + v2.size());
+            vector<int>::iterator end;
+
+            end = set_intersection(
+                v1.begin(), v1.end(),
+                v2.begin(), v2.end(),
+                v3.begin());
+            //if(i <10 && j < 10)
+            //cout<<i<<" "<<j<< " "<< distance(v3.begin(), end)<<endl;
+
+            // jth element inserted.
+            priority_score[i].push_back(distance(v3.begin(), end));
+        }
+        // if(i%100 == 0)
+        //cout << i << endl;
+    }
+    cout << "[LOG] Graph priority populated" << endl;
+}
 
 void populate_graph(vector<vector<int>> &graph_input)
 {
@@ -26,10 +53,11 @@ void populate_graph(vector<vector<int>> &graph_input)
     }
     char line[20];
     fgets(line, 20, file);
-    cout << line << "\n";
+    cout << line;
 
     while (fgets(line, 20, file))
     {
+        //printf("READIND\n");
         char *token = strtok(line, ",");
         int first = atoi(token);
         token = strtok(NULL, ",");
@@ -41,6 +69,8 @@ void populate_graph(vector<vector<int>> &graph_input)
         nodes[first].degree++;
         nodes[second].degree++;
     }
+
+    cout << "[LOG] Graph populated" << endl;
 }
 
 void *simulateUserAction(void *arg)
@@ -50,6 +80,9 @@ void *simulateUserAction(void *arg)
     while (1)
     {   
         // select 100 random nodes
+
+        cout << "[LOG] simulateUserAction starting" << endl;
+
         for (int i = 0; i < 100; i++)
         {
             // select a random node id
@@ -82,6 +115,9 @@ void *simulateUserAction(void *arg)
                 // cout << curr_time << "\n";
                 newAction.time_stamp = curr_time;
 
+                newAction.priority_type = -1;
+                newAction.priority_val = -1;
+
                 // push the action to the WallQueue of user node
                 nodes[nodeId].WallQueue.push(newAction);
 
@@ -91,6 +127,10 @@ void *simulateUserAction(void *arg)
                 // print the details of new action to sns.log
                 fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id, newAction.action_type, newAction.time_stamp);
             }
+
+            pthread_cond_broadcast(&cv_empty);
+            fprintf(fp, "[pushUpdate] simulateUserAction Thread sent condition signal.\n");
+
             if (pthread_mutex_unlock(&lock_wallq))
             {
                 perror("wall queue unlock failed\n");
@@ -168,6 +208,8 @@ void *pushUpdate(void *arg)
             for (int i = 0; i < graph[newAction.user_id].size(); i++)
             {
                 int neighbourId = graph[newAction.user_id][i];
+                int priority_val = priority_score[newAction.user_id][i];
+
                 int _id = neighbourId % NUM_READ_THREADS;
 
                 if ( pthread_mutex_lock(&lock_feedq[_id]) ) {
@@ -179,6 +221,11 @@ void *pushUpdate(void *arg)
                 }
 
                 // TODO: add a mutex to protect the feed-queue
+
+                // adding the detail dependent
+                newAction.priority_type = nodes[neighbourId].priority;
+                newAction.priority_val = priority_val;
+                
                 nodes[neighbourId].FeedQueue.push(newAction);                
                 feed_queue[_id].push(neighbourId);
 
@@ -228,6 +275,12 @@ void *readPost(void *arg) {
             fprintf(fp, "[readPost] Thread id %d locked the feed queue\n", id);
         }
 
+        while (feed_queue[id - 1].empty())
+        {
+            fprintf(fp, "[readPost] Thread id %d going into wait for actions to be added in queue...\n", id);
+            pthread_cond_wait(&feed_empty[id - 1], &feed_lock);
+        }
+
         while (!feed_queue[id - 1].empty()) {
 
             int node = feed_queue[id - 1].front();
@@ -236,12 +289,6 @@ void *readPost(void *arg) {
             nodes[node].FeedQueue.pop();
 
             fprintf(fp, "[readPost] Thread id %d popped %d node's Feed\n", id, node);
-        }
-
-        while (feed_queue[id - 1].empty())
-        {
-            fprintf(fp, "[readPost] Thread id %d going into wait for actions to be added in queue...\n", id);
-            pthread_cond_wait(&feed_empty[id - 1], &feed_lock);
         }
 
         // unlocking its feed-queue's lock
@@ -276,6 +323,7 @@ int main()
 
     // populate the graph
     populate_graph(graph);
+    calculate_priority(graph, priority_score);
 
     int max_degree = -1;
     for (int i = 0; i < ROWS; i++)
@@ -293,6 +341,8 @@ int main()
     // initialize pthread mutex protecting GlbWallQueue and condition variable objects
     pthread_mutex_init(&lock_wallq, NULL);
     pthread_cond_init(&cv_empty, NULL);
+    for (int i = 0; i < 10; i ++)
+        pthread_cond_init(&feed_empty[i], NULL);
 
     // explicitly creating threads in a joinable state 
     pthread_attr_init(&attr);
@@ -304,6 +354,9 @@ int main()
         perror("pthread_create\n");
         exit(0);
     }
+
+    cout << "[LOG] User Simulator running" << endl;
+    
     // create 10 readPost 25 pushUpdate thread
     pthread_t readPost_pool[10];
     pthread_t pushUpdate_pool[25];
@@ -314,12 +367,16 @@ int main()
         pthread_create(&pushUpdate_pool[i], &attr, pushUpdate, &tid);
     }
     
+    cout << "[LOG] pushUpdate threads created" << endl;
+    
     int thread_ids[NUM_READ_THREADS];
     for(int i=0; i < 10; i++) {
         
         thread_ids[i] = i + 1;
         pthread_create(&readPost_pool[i], &attr, readPost, &thread_ids[i]);
     }
+    
+    cout << "[LOG] readPost threads created" << endl;
     
     // block until the thread completes
     pthread_join(userSimulator, NULL);
