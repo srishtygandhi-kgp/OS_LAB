@@ -487,10 +487,19 @@ int main()
         pthread_join(pushUpdate_pool[i], NULL);
     }
 
+    for (int i = 0; i < NUM_READ_THREADS; ++i)
+    {
+        pthread_join(readPost_pool[i], NULL);
+    }
+
     fclose(fp);
     // Clean up and exit 
-    // pthread_mutex_destroy(&lock_wallq);
-    // pthread_cond_destroy(&cv_empty);
+    pthread_mutex_destroy(&lock_wallq);
+    for (int i = 0; i < NUM_READ_THREADS; i ++)
+        pthread_mutex_destroy(&lock_feedq[i]);
+    pthread_cond_destroy(&cv_empty);
+    for (int i = 0; i < NUM_READ_THREADS; i ++)
+        pthread_cond_destroy(&feed_empty[i]);
     // pthread_exit(NULL);
     return 0;
 }
