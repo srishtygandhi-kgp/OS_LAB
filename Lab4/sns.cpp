@@ -120,7 +120,7 @@ void *simulateUserAction(void *arg)
 
                 // action_id is a countervariable associated with each node and specific to each action
                 cnt = ++nodes[nodeId].action_id[action_type];
-                newAction.action_id = cnt++;
+                newAction.action_id = cnt;
 
                 time_t curr_time = time(NULL);
                 // cout << curr_time << "\n";
@@ -140,8 +140,8 @@ void *simulateUserAction(void *arg)
                 printf("----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id, newAction.action_type, newAction.time_stamp);
 
                 pthread_cond_broadcast(&cv_empty);
-                fprintf(fp, "[simulateUserAction] Thread sent condition signal.\n");
-                printf("[simulateUserAction] Thread sent condition signal.\n");
+                fprintf(fp, "[simulateUserAction] userSimulator thread sent condition signal.\n");
+                printf("[simulateUserAction] userSimulator thread sent condition signal.\n");
             }
 
             if (pthread_mutex_unlock(&lock_wallq))
@@ -150,8 +150,8 @@ void *simulateUserAction(void *arg)
                 exit(1);
             }
             else {
-                fprintf(fp, "[simulateUserAction] thread unlocked the wall queue\n");
-                printf("[simulateUserAction] thread unlocked the wall queue\n");
+                fprintf(fp, "[simulateUserAction] userSimulator thread unlocked the wall queue\n");
+                printf("[simulateUserAction] userSimulator thread unlocked the wall queue\n");
             }
         }
         // sleep for 2 minutes after pushing all actions
@@ -289,26 +289,26 @@ void log_action(Action action, int thread_id, int node_id) {
     switch(action.action_type) {
 
         case 1: // POST
-            fprintf(fp, "Thread-%d, read a POST from Node-%d's feed-queue\n"
+            fprintf(fp, "[readPost] Thread-%d, read a POST from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
-            printf("Thread-%d, read a POST from Node-%d's feed-queue\n"
+            printf("[readPost] Thread-%d, read a POST from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
             break;
         case 2: // COMMENT
-            fprintf(fp, "Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
+            fprintf(fp, "[readPost] Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
-            printf("Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
+            printf("[readPost] Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
             break;
         default: // LIKE
-            fprintf(fp, "Thread-%d, read a LIKE from Node-%d's feed-queue\n"
+            fprintf(fp, "[readPost] Thread-%d, read a LIKE from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
-            printf("Thread-%d, read a LIKE from Node-%d's feed-queue\n"
+            printf("[readPost] Thread-%d, read a LIKE from Node-%d's feed-queue\n"
             , thread_id
             , node_id);
 
@@ -435,7 +435,6 @@ int main()
     printf("Number of nodes -> %ld\n", graph.size());
     cout << "Maximum degree of node: " << max_degree << "\n";
 
-    actionCnt = 0;
     int return_value;
     pthread_t userSimulator;
     pthread_attr_t attr;
