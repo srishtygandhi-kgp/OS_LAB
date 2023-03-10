@@ -37,7 +37,9 @@ typedef struct node {
 } Node;
 
 vector<Node> nodes(37700);
-vector<vector<int> > graph(ROWS);
+
+using Graph = vector<vector<int> >;
+Graph graph(ROWS);
 
 vector<vector<int> > priority_score(ROWS);
 
