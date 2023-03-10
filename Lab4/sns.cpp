@@ -11,6 +11,12 @@
 using namespace std;
 FILE *fp;
 
+#define LOG_MSG(FP,MSG)                     \
+    do {                                    \
+        printf(MSG);                        \
+        fprintf(FP, MSG);                   \
+    } while (0)
+
 int num_pushes[25], num_pops[NUM_READ_THREADS];
 
 pthread_cond_t cv_empty;
@@ -100,8 +106,11 @@ void *simulateUserAction(void *arg)
             }
             else {
                 fprintf(fp, "[userSimulator] thread locked the wall queue\n");
+                printf("[userSimulator] thread locked the wall queue\n");
             }
+            
             fprintf(fp, "\nNode id selected by userSimulator: %d\nNo of Actions generated: %d\nDegree of node id %d: %d\n", nodeId, num_action, nodeId, nodes[nodeId].degree);
+            printf("\nNode id selected by userSimulator: %d\nNo of Actions generated: %d\nDegree of node id %d: %d\n", nodeId, num_action, nodeId, nodes[nodeId].degree);
             for (int j = 0; j < num_action; j++)
             {
                 Action newAction;
@@ -128,9 +137,11 @@ void *simulateUserAction(void *arg)
 
                 // print the details of new action to sns.log
                 fprintf(fp, "----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id, newAction.action_type, newAction.time_stamp);
+                printf("----Action----\nAction id: %d\nAction type: %d\nTimestamp: %d\n", newAction.action_id, newAction.action_type, newAction.time_stamp);
 
                 pthread_cond_broadcast(&cv_empty);
                 fprintf(fp, "[simulateUserAction] Thread sent condition signal.\n");
+                printf("[simulateUserAction] Thread sent condition signal.\n");
             }
 
             if (pthread_mutex_unlock(&lock_wallq))
@@ -140,6 +151,7 @@ void *simulateUserAction(void *arg)
             }
             else {
                 fprintf(fp, "[simulateUserAction] thread unlocked the wall queue\n");
+                printf("[simulateUserAction] thread unlocked the wall queue\n");
             }
         }
         // sleep for 2 minutes after pushing all actions
@@ -147,7 +159,7 @@ void *simulateUserAction(void *arg)
 
         for (int i = 0; i < 12; i ++) {
             sleep(10);
-            cout << "[SLEPT] " << i * 10 << endl;
+            cout << "[SLEPT] " << ( i + 1 ) * 10 << endl;
         }
     }
     pthread_exit(NULL);
@@ -174,6 +186,7 @@ void *pushUpdate(void *arg)
         }
         else {
             fprintf(fp, "[pushUpdate] Thread id %d locked the wall queue\n", id);
+            printf("[pushUpdate] Thread id %d locked the wall queue\n", id);
         }
 
         if (!GlbWallQueue.empty())
@@ -187,6 +200,7 @@ void *pushUpdate(void *arg)
             {
                 pthread_cond_broadcast(&cv_empty);
                 fprintf(fp, "[pushUpdate] Thread id %d sent condition signal.\n", id);
+                printf("[pushUpdate] Thread id %d sent condition signal.\n", id);
             }
         }
         else
@@ -195,6 +209,7 @@ void *pushUpdate(void *arg)
             while (GlbWallQueue.empty())
             {
                 fprintf(fp, "[pushUpdate] Thread id %d going into wait for actions to be added in queue...\n", id);
+                printf("[pushUpdate] Thread id %d going into wait for actions to be added in queue...\n", id);
                 pthread_cond_wait(&cv_empty, &lock_wallq);
             }
         }
@@ -206,6 +221,7 @@ void *pushUpdate(void *arg)
         }
         else {
             fprintf(fp, "[pushUpdate] Thread id %d unlocked the wall queue\n", id);
+            printf("[pushUpdate] Thread id %d unlocked the wall queue\n", id);
         }
 
         // do the work
@@ -225,6 +241,7 @@ void *pushUpdate(void *arg)
                 } 
                 else {
                     fprintf(fp, "[pushUpdate] Thread id %d locked the feed queue\n", id);
+                    printf("[pushUpdate] Thread id %d locked the feed queue\n", id);
                 }
 
                 // adding the detail dependent
@@ -238,9 +255,11 @@ void *pushUpdate(void *arg)
                 // adding a pthread_cond_signal/broadcast to wake up
                 // stuck readPost threads
                 fprintf(fp, "[pushUpdate] Thread id %d added action of Node id %d to feed of Node id %d\n", id, newAction.user_id, neighbourId);
+                printf("[pushUpdate] Thread id %d added action of Node id %d to feed of Node id %d\n", id, newAction.user_id, neighbourId);
 
                 pthread_cond_broadcast(&feed_empty[_id]);
                 fprintf(fp, "[pushUpdate] This thread %d sent the broadcast\n", id);
+                printf("[pushUpdate] This thread %d sent the broadcast\n", id);
 
                 if ( pthread_mutex_unlock(&lock_feedq[_id]) )
                 {
@@ -250,17 +269,52 @@ void *pushUpdate(void *arg)
 
                 num_pushes[id - 1] ++;
 
+                /*
                 int _cnt = 0;
                 for (int i = 0; i < 25; i ++)
                     _cnt += num_pushes[i];
                 if ( (_cnt % 10000) == 0 )
                     cout << "PUSHES: " << id << " :" << _cnt << endl;
+                */
 
             }
             got_action = false;
         }
     }
     pthread_exit(NULL);
+}
+
+void log_action(Action action, int thread_id, int node_id) {
+
+    switch(action.action_type) {
+
+        case 1: // POST
+            fprintf(fp, "Thread-%d, read a POST from Node-%d's feed-queue\n"
+            , thread_id
+            , node_id);
+            printf("Thread-%d, read a POST from Node-%d's feed-queue\n"
+            , thread_id
+            , node_id);
+            break;
+        case 2: // COMMENT
+            fprintf(fp, "Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
+            , thread_id
+            , node_id);
+            printf("Thread-%d, read a COMMENT from Node-%d's feed-queue\n"
+            , thread_id
+            , node_id);
+            break;
+        default: // LIKE
+            fprintf(fp, "Thread-%d, read a LIKE from Node-%d's feed-queue\n"
+            , thread_id
+            , node_id);
+            printf("Thread-%d, read a LIKE from Node-%d's feed-queue\n"
+            , thread_id
+            , node_id);
+
+    }
+
+    return;
 }
 
 void *readPost(void *arg) {
@@ -287,6 +341,7 @@ void *readPost(void *arg) {
         } 
         else {
             fprintf(fp, "[readPost] Thread id %d locked the feed queue\n", id);
+            printf("[readPost] Thread id %d locked the feed queue\n", id);
         }
 
         while (!feed_queue[id - 1].empty()) {
@@ -294,16 +349,21 @@ void *readPost(void *arg) {
             int node = feed_queue[id - 1].front();
             feed_queue[id - 1].pop();
 
+            Action _action = nodes[node].FeedQueue.top();
             nodes[node].FeedQueue.pop();
 
-            num_pops[id - 1] ++;
+            log_action(_action, id, node);
+
+            // num_pops[id - 1] ++;
 
             fprintf(fp, "[readPost] Thread id %d popped %d node's Feed\n", id, node);
+            printf("[readPost] Thread id %d popped %d node's Feed\n", id, node);
         }
 
         while (feed_queue[id - 1].empty())
         {
             fprintf(fp, "[readPost] Thread id %d going into wait for actions to be added in queue...\n", id);
+            printf("[readPost] Thread id %d going into wait for actions to be added in queue...\n", id);
             pthread_cond_wait(&feed_empty[id - 1], &lock_feedq[id - 1]);
         }
 
@@ -312,11 +372,15 @@ void *readPost(void *arg) {
             int node = feed_queue[id - 1].front();
             feed_queue[id - 1].pop();
 
+            Action _action = nodes[node].FeedQueue.top();
             nodes[node].FeedQueue.pop();
 
-            num_pops[id - 1] ++;
+            log_action(_action, id, node);
+
+            // num_pops[id - 1] ++;
 
             fprintf(fp, "[readPost] Thread id %d popped %d node's Feed\n", id, node);
+            printf("[readPost] Thread id %d popped %d node's Feed\n", id, node);
         }
 
         // unlocking its feed-queue's lock
@@ -326,14 +390,17 @@ void *readPost(void *arg) {
         } 
         else {
             fprintf(fp, "[readPost] Thread id %d unlocked the feed queue\n", id);
+            printf("[readPost] Thread id %d unlocked the feed queue\n", id);
         }
 
+        /*
         int _cnt = 0;
         for (int i = 0; i < NUM_READ_THREADS; i ++)
             _cnt += num_pops[i];
         
         if ( (_cnt % 10000) == 0 )
             cout << "POPS: " << id << " " << _cnt << endl;
+        */
     }
 
 
