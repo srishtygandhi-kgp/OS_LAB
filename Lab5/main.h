@@ -1,8 +1,12 @@
 #ifndef _MAIN_H
 #define _MAIN_H
 
+#include <pthread.h>
+#include <semaphore.h>
 #include <stack>
-#include <queue>
+#include <set>
+
+using namespace std;
 
 int totalOccupiedSinceLastClean;
 int *guestPriorities;
@@ -22,7 +26,8 @@ typedef struct _room {
     }
 } Room;
 
-stack<Room> availableRooms, unavailableRooms;
-priority_queue<Room> occupiedRooms; // can be evicted
+Room* allRooms;
+stack<int> availableRooms, unavailableRooms;
+set<int> occupiedRooms; // can be evicted
 
 #endif
