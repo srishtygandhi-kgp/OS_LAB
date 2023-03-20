@@ -16,12 +16,22 @@ int getRoom(int guestID) {
         int temp = sem_trywait(&roomSemaphore);
         if(temp == 0) {
             // got the room
-            cout << "getRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
+            cout << "getRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << endl;
             int currentRoom = availableRooms.top();
             availableRooms.pop();
             allRooms[currentRoom].available = false;
             allRooms[currentRoom].currentOccupant = guestID;
             if(allRooms[currentRoom].pastOccupants++ == 0) occupiedRooms.insert(currentRoom);
+
+            if(pthread_mutex_lock(&changeTotalOccupied) != 0) {
+                perror("pthread mutex changeTotalOccupied lock error occured.");
+                exit(0);
+            }
+            totalOccupiedSinceLastClean++;
+            if(pthread_mutex_unlock(&changeTotalOccupied) != 0) {
+                perror("pthread mutex changeTotalOccupied unlock error occured.");
+                exit(0);
+            }
             return currentRoom;
         }
         else if(errno == EAGAIN) {
@@ -63,7 +73,7 @@ void vacateRoom(int guestID, int currentRoom) {
         }
     }
 
-    cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
+    cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << endl;
 }
 
 void *guest(void *arg) {
