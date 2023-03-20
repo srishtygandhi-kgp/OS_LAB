@@ -2,19 +2,52 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include "main.h"
 
 using namespace std;
-int *guestPriorities;
 
 int get_rand_inrange(int a, int b) {
   return a + rand() % (b - a + 1);  // generate a random number in the range [a, b]
 }
 
+void getRoom(int guestID) {
+    while(1) {
+        int temp = sem_trywait(&roomSemaphore);
+        if(temp == 0) {
+            // got the room
+            return;
+        }
+        else if(temp == EAGAIN) {
+            // all occupied. need to evict
+        }
+        else {
+            perror("semaphore wait error occured!");
+            exit(0);
+        }
+    }
+}
+
+void vacateRoom(int guestID) {
+
+}
+
 void *guest(void *arg) {
-    // sleeps for random time first
-    int randomSleepTime = get_rand_inrange(10, 20);
-    sleep(randomSleepTime);
+
+    int guestID = *(int *)arg;
+
+    while(1) {
+        // sleeps for random time first
+        int randomSleepTime = get_rand_inrange(10, 20);
+        sleep(randomSleepTime);
+
+        getRoom(guestID);
+
+        int randomStayTime = get_rand_inrange(10, 30);
+        sleep(randomStayTime);
+        
+        sem_post(&roomSemaphore);
+    }
 }
 
 
@@ -58,6 +91,14 @@ int main()
     for (int i = 0; i < y; i++)
         guestPriorities[i] = 1 + rand() % y;
 
+    totalOccupiedSinceLastClean = 0;
+
+    // initialize mutex for total occupied change
+    pthread_mutex_init(&changeTotalOccupied, NULL);
+
+    //initialize room semaphore
+    sem_init(&roomSemaphore, 0, n);
+
     // explicitly creating threads in a joinable state 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -72,7 +113,7 @@ int main()
         pthread_create(&guest_thread[i], &attr, guest, &guest_id[i]);
     }
 
-    // create clealing staff thread
+    // create cleaning staff thread
     int *cleaning_staff_id = (int *)malloc(x * sizeof(int));
     pthread_t *cleaning_staff = (pthread_t *)malloc(x * sizeof(pthread_t));
     for (int i = 0; i < 10; i++)
