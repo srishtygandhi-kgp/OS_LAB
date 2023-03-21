@@ -11,7 +11,7 @@ using namespace std;
 int totalOccupiedSinceLastClean;
 int *guestPriorities;
 
-pthread_mutex_t changeTotalOccupied;
+pthread_mutex_t changeTotalOccupied, changeOccupiedRoom;
 
 sem_t roomSemaphore;
 

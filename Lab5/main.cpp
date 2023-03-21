@@ -7,101 +7,169 @@
 
 using namespace std;
 
-int get_rand_inrange(int a, int b) {
-  return a + rand() % (b - a + 1);  // generate a random number in the range [a, b]
+int get_rand_inrange(int a, int b)
+{
+    return a + rand() % (b - a + 1); // generate a random number in the range [a, b]
 }
 
-int getRoom(int guestID) {
-    while(1) {
+int getRoom(int guestID)
+{
+    while (1)
+    {
         int temp = sem_trywait(&roomSemaphore);
-        if(temp == 0) {
+        if (temp == 0)
+        {
             // got the room
-            cout << "getRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << endl;
+            cout << "getRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << "\n";
             int currentRoom = availableRooms.top();
             availableRooms.pop();
             allRooms[currentRoom].available = false;
             allRooms[currentRoom].currentOccupant = guestID;
-            if(allRooms[currentRoom].pastOccupants++ == 0) occupiedRooms.insert(currentRoom);
+            if (allRooms[currentRoom].pastOccupants++ == 0)
+                occupiedRooms.insert(currentRoom);
 
-            if(pthread_mutex_lock(&changeTotalOccupied) != 0) {
+            if (pthread_mutex_lock(&changeTotalOccupied) != 0)
+            {
                 perror("pthread mutex changeTotalOccupied lock error occured.");
                 exit(0);
             }
             totalOccupiedSinceLastClean++;
-            if(pthread_mutex_unlock(&changeTotalOccupied) != 0) {
+            if (pthread_mutex_unlock(&changeTotalOccupied) != 0)
+            {
                 perror("pthread mutex changeTotalOccupied unlock error occured.");
                 exit(0);
             }
             return currentRoom;
         }
-        else if(errno == EAGAIN) {
+        else if (errno == EAGAIN)
+        {
             // all occupied. need to evict
-            if(occupiedRooms.empty()) continue;
+            if (occupiedRooms.empty())
+                continue;
 
             // check if any occupied room can be evicted.
-            int leastPriorityRoom = *(occupiedRooms.begin());
+            // int leastPriorityRoom = *(occupiedRooms.begin());
             // cout << "leastPriorityRoom " << leastPriorityRoom << endl;
-            if(guestPriorities[allRooms[leastPriorityRoom].currentOccupant] < guestPriorities[guestID]) {
-                // evict @sarita
-                // occupiedRooms.erase(leastPriorityRoom);
+
+            int currentRoom=-1;
+            if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
+            {
+                perror("pthread mutex changeTotalOccupied lock error occured.");
+                exit(0);
             }
+            for (auto itr : occupiedRooms)
+            {
+                if (guestPriorities[guestID] > guestPriorities[allRooms[itr].currentOccupant])
+                {
+                    currentRoom = itr;
+                    break;
+                }
+            }
+            if(currentRoom != -1) {
+            cout << "Guest id " << guestID << ", currentPriorityRoom " << guestPriorities[allRooms[currentRoom].currentOccupant] << ", guest priority " << guestPriorities[guestID] << "\n";
+            occupiedRooms.erase(occupiedRooms.find(currentRoom));
+            }
+            if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
+            {
+                perror("pthread mutex changeTotalOccupied unlock error occured.");
+                exit(0);
+            }
+            if(currentRoom == -1) 
+                continue;
+            allRooms[currentRoom].available = false;
+            allRooms[currentRoom].currentOccupant = guestID;
+            allRooms[currentRoom].pastOccupants++;
+
+            if (pthread_mutex_lock(&changeTotalOccupied) != 0)
+            {
+                perror("pthread mutex changeTotalOccupied lock error occured.");
+                exit(0);
+            }
+            totalOccupiedSinceLastClean++;
+            if (pthread_mutex_unlock(&changeTotalOccupied) != 0)
+            {
+                perror("pthread mutex changeTotalOccupied unlock error occured.");
+                exit(0);
+            }
+            return currentRoom;
         }
-        else {
+        else
+        {
             perror("semaphore wait error occured!");
             exit(0);
         }
     }
 }
 
-void vacateRoom(int guestID, int currentRoom) {
+void vacateRoom(int guestID, int currentRoom)
+{
 
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
-    //remove from priority queue
-    auto it = occupiedRooms.find(currentRoom);
-    if(it != occupiedRooms.end()) occupiedRooms.erase(it);
+    // remove from set
+    // if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
+    // {
+    //     perror("pthread mutex changeTotalOccupied lock error occured.");
+    //     exit(0);
+    // }
+    // auto it = occupiedRooms.find(currentRoom);
+    // if (it != occupiedRooms.end())
+    //     occupiedRooms.erase(it);
+    // if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
+    // {
+    //     perror("pthread mutex changeTotalOccupied unlock error occured.");
+    //     exit(0);
+    // }
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
 
-    cout << "vacateRoom: " << currentRoom << " " << allRooms[currentRoom].pastOccupants << endl;
+    cout << "vacateRoom: " << currentRoom << " " << allRooms[currentRoom].pastOccupants << "\n";
     allRooms[currentRoom].available = true;
     allRooms[currentRoom].currentOccupant = -1;
-    if(allRooms[currentRoom].pastOccupants == 2) unavailableRooms.push(currentRoom);
-    else {
+    if (allRooms[currentRoom].pastOccupants == 2)
+        unavailableRooms.push(currentRoom);
+    else
+    {
         availableRooms.push(currentRoom);
-        if(sem_post(&roomSemaphore) != 0) {
+        if (sem_post(&roomSemaphore) != 0)
+        {
             perror("semaphore post error occured!");
             exit(0);
         }
     }
 
-    cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << endl;
+    cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << "\n";
 }
 
-void *guest(void *arg) {
+void *guest(void *arg)
+{
 
     int guestID = *(int *)arg;
 
-    while(1) {
+    while (1)
+    {
         // sleeps for random time first
         int randomSleepTime = get_rand_inrange(10, 20);
-        cout << "Guest " << guestID << " : " << "init sleeping for " << randomSleepTime << " seconds." << endl;
+        cout << "Guest " << guestID << " : "
+             << "init sleeping for " << randomSleepTime << " seconds.\n";
         sleep(randomSleepTime);
 
         int currentRoom = getRoom(guestID);
-        cout << "Guest " << guestID << " : " << "got room " << currentRoom << endl;
+        cout << "Guest " << guestID << " : "
+             << "got room " << currentRoom << endl;
 
         int randomStayTime = get_rand_inrange(10, 30);
-        cout << "Guest " << guestID << " : " << "staying for " << randomStayTime << " seconds." << endl;
+        cout << "Guest " << guestID << " : "
+             << "staying for " << randomStayTime << " seconds.\n";
         sleep(randomStayTime);
         allRooms[currentRoom].totalTimeLived += randomStayTime;
 
         vacateRoom(guestID, currentRoom);
-        cout << "Guest " << guestID << " : " << "vacated the room." << endl;
+        cout << "Guest " << guestID << " : "
+             << "vacated the room.\n";
     }
 }
 
-
-void *cleaner(void *arg) {
-
+void *cleaner(void *arg)
+{
 }
 
 int main()
@@ -121,7 +189,7 @@ int main()
         cin >> n;
         if (!(y > n && n > x && x > 1))
         {
-            cout << "Please enter Y, X, N which satisfies Y>N>X>1\n";
+            cout << "\nPlease enter Y, X, N which satisfies Y>N>X>1\n\n";
         }
         else
             break;
@@ -141,18 +209,23 @@ int main()
 
     // randomly assign priority to guests and store it in array
     guestPriorities = (int *)malloc(y * sizeof(int));
-    for (int i = 0; i < y; i++)
+    for (int i = 0; i < y; i++) {
         guestPriorities[i] = 1 + rand() % y;
-
+        cout<<guestPriorities[i]<<" ";
+    }
+    cout<<"\n";
     totalOccupiedSinceLastClean = 0;
 
     // initialize mutex for total occupied change
     pthread_mutex_init(&changeTotalOccupied, NULL);
 
-    //initialize room semaphore
+    // initialize mutex for total occupied change
+    pthread_mutex_init(&changeOccupiedRoom, NULL);
+
+    // initialize room semaphore
     sem_init(&roomSemaphore, 0, n);
 
-    // explicitly creating threads in a joinable state 
+    // explicitly creating threads in a joinable state
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -176,12 +249,14 @@ int main()
     }
 
     // wait for guest threads
-    for(int i = 0; i < y; i++) {
+    for (int i = 0; i < y; i++)
+    {
         pthread_join(guest_thread[i], NULL);
     }
 
     // wait for cleaning staff threads
-    for(int i = 0; i < x; i++) {
+    for (int i = 0; i < x; i++)
+    {
         pthread_join(cleaning_staff[i], NULL);
     }
 
