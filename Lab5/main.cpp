@@ -106,19 +106,19 @@ void vacateRoom(int guestID, int currentRoom)
 
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
     // remove from set
-    // if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
-    // {
-    //     perror("pthread mutex changeTotalOccupied lock error occured.");
-    //     exit(0);
-    // }
-    // auto it = occupiedRooms.find(currentRoom);
-    // if (it != occupiedRooms.end())
-    //     occupiedRooms.erase(it);
-    // if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
-    // {
-    //     perror("pthread mutex changeTotalOccupied unlock error occured.");
-    //     exit(0);
-    // }
+    if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
+    {
+        perror("pthread mutex changeTotalOccupied lock error occured.");
+        exit(0);
+    }
+    auto it = occupiedRooms.find(currentRoom);
+    if (it != occupiedRooms.end())
+        occupiedRooms.erase(it);
+    if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
+    {
+        perror("pthread mutex changeTotalOccupied unlock error occured.");
+        exit(0);
+    }
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
 
     cout << "vacateRoom: " << currentRoom << " " << allRooms[currentRoom].pastOccupants << "\n";
