@@ -103,7 +103,9 @@ int getRoom(int guestID)
 
 void vacateRoom(int guestID, int currentRoom)
 {
-
+    // check to make sure that an evicted guest does not attempt to vacacte the room 
+    if(allRooms[currentRoom].currentOccupant != guestID)
+        return;
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
     // remove from set
     if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
