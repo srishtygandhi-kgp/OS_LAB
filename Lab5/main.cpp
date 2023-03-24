@@ -185,6 +185,7 @@ int getRoom(int guestID)
         else if (errno == EAGAIN)
         {
             // all occupied. need to evict
+            int _check = 0;
 
             if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
             {
@@ -193,7 +194,7 @@ int getRoom(int guestID)
             }
 
             if (occupiedRooms.empty())
-                continue;
+                _check = 1;
 
             if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
             {
@@ -201,6 +202,9 @@ int getRoom(int guestID)
                 exit(0);
             }
 
+            if (_check)
+                continue;
+            
             int currentRoom = getLowerPriority(guestID);
 
             // there is no lower priority guest, hence no room
@@ -357,7 +361,7 @@ void *guest(void *arg)
         // sleeps for random time first
         int randomSleepTime = get_rand_inrange(RANDOM_SLEEP_TIME_MIN, RANDOM_SLEEP_TIME_MAX);
         cout << "Guest " << guestID << " : "
-             << "init sleeping for " << randomSleepTime << " seconds " << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";;
+             << "init sleeping for " << randomSleepTime << " seconds " << "| unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";;
         sleep(randomSleepTime);
 
         int currentRoom = getRoom(guestID);
@@ -445,10 +449,12 @@ void *cleaner(void *arg)
 
             cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned at loop start " << n - val << endl;
 
+            /*
             if (val == n) {
                 pthread_cond_broadcast(&cv_unaval);
                 break;
             }
+            */
 
             if (pthread_mutex_lock(&unaval_room) != 0)
             {
