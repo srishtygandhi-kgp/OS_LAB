@@ -8,16 +8,16 @@
 #include <setjmp.h>
 #include "main.h"
 
-
-#define RANDOM_SLEEP_TIME_MIN 1
-#define RANDOM_SLEEP_TIME_MAX 2
-#define RANDOM_STAY_TIME_MIN 1
-#define RANDOM_STAY_TIME_MAX 3
+#define PROP_CONST 7
+#define RANDOM_SLEEP_TIME_MIN 10
+#define RANDOM_SLEEP_TIME_MAX 20
+#define RANDOM_STAY_TIME_MIN 10
+#define RANDOM_STAY_TIME_MAX 30
 
 // take input x, y and n
 int x, y, n;
 
-sigjmp_buf *env;
+sigjmp_buf *guest_env;
 
 sigset_t evict_set, clean_set;
 int is_cleaning;
@@ -146,11 +146,20 @@ int getRoom(int guestID)
 {
     while (1)
     {
+        if ( sigsetjmp(guest_env[guestID], 1) == 69 ) {
+            cout << "back here" << endl;
+        }
+
+        int val;
+        sem_getvalue(&roomSemaphore, &val);
+
+        cout << "[LOG] roomSemaphore: " << val << endl;
+
         int temp = sem_trywait(&roomSemaphore);
         if (temp == 0)
         {
             // got the room
-            // cout << "getRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << "\n";
+            cout << "getRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << "\n";
 
             if (pthread_mutex_lock(&aval_room) != 0)
             {
@@ -413,7 +422,7 @@ void *cleaner(void *arg)
 
     while (1) {
 
-        int signum;
+        int signum, did_clean;
 
         // we wait here to be woken up by the signal
         while (!is_cleaning) {
@@ -520,7 +529,7 @@ void *cleaner(void *arg)
 
                 cout << "Cleaner " << cleanerID << " : modified " << lived << "|"<< currentRoom << endl;
 
-                sleep((int) lived);
+                sleep((int) lived / PROP_CONST);
 
                 if (sem_post(&roomSemaphore) != 0)
                 {
@@ -532,11 +541,34 @@ void *cleaner(void *arg)
                 sem_getvalue(&roomSemaphore, &val);
 
                 cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned actually " << n - val << endl;
+                did_clean = 1;
 
+                /*
                 if (val >= n) {
                     cout << "Cleaner " << cleanerID << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
                     pthread_cond_broadcast(&cv_unaval);
                     break;
+                }
+                */
+
+            } else {
+
+                if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
+                {
+                    perror("pthread mutex changeOccupiedRoom lock error occured.");
+                    exit(0);
+                }
+
+                if ( occupiedRooms.empty() ) {
+                    cout << "BREAKING OUT" << endl;
+                    did_clean = 0;
+                    break;
+                }
+
+                if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
+                {
+                    perror("pthread mutex changeOccupiedRoom unlock error occured.");
+                    exit(0);
                 }
 
             }
@@ -556,12 +588,12 @@ void *cleaner(void *arg)
             totalOccupiedSinceLastClean = 0;
 
         // using totalOcc.. as a counter
-        totalOccupiedSinceLastClean ++;
+        if (did_clean) {
+            totalOccupiedSinceLastClean ++;
+            cout << "Cleaner " << cleanerID << " out" << " totalOcc : " << totalOccupiedSinceLastClean << "\n";
+        }
 
-
-        cout << "Cleaner " << cleanerID << " out" << " totalOcc : " << totalOccupiedSinceLastClean << "\n";
-
-        if (totalOccupiedSinceLastClean == x) {
+        if (totalOccupiedSinceLastClean == n) {
             is_cleaning = 0;
             totalOccupiedSinceLastClean = 0;
 
@@ -614,6 +646,8 @@ int main()
             break;
     } while (1);
 
+    // init jmp_bufs
+    guest_env = (sigjmp_buf *) malloc ( y * sizeof (sigjmp_buf) );
     // Init rooms
     allRooms = (Room *)malloc(n * sizeof(Room));
     for (int i = 0; i < n; i++)
