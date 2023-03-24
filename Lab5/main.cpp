@@ -443,7 +443,7 @@ void *cleaner(void *arg)
             int val, currentRoom = -1;
             sem_getvalue(&roomSemaphore, &val);
 
-            //cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned at loop start " << n - val << endl;
+            cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned at loop start " << n - val << endl;
 
             if (val == n) {
                 pthread_cond_broadcast(&cv_unaval);
@@ -488,7 +488,7 @@ void *cleaner(void *arg)
             // looking into the allrooms array and changing for
             // the given room
 
-            //cout << "Cleaner " << cleanerID << " right out the lock"<< endl;
+            cout << "Cleaner " << cleanerID << " current room " << currentRoom << endl;
 
             if ( currentRoom != -1 ) {
 
@@ -542,7 +542,7 @@ void *cleaner(void *arg)
                 int val;
                 sem_getvalue(&roomSemaphore, &val);
 
-                cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned actually " << n - val << endl;
+                cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned : " << n << " current: " << val << endl;
                 did_clean += 1;
 
                 /*
@@ -554,6 +554,8 @@ void *cleaner(void *arg)
                 */
 
             } else {
+
+                cout << "[LOG] unaval is empty" << endl;
 
                 if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
                 {
