@@ -5,7 +5,9 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <setjmp.h>
 #include "main.h"
+
 
 #define RANDOM_SLEEP_TIME_MIN 1
 #define RANDOM_SLEEP_TIME_MAX 2
@@ -14,6 +16,8 @@
 
 // take input x, y and n
 int x, y, n;
+
+sigjmp_buf *env;
 
 sigset_t evict_set, clean_set;
 int is_cleaning;
