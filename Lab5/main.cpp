@@ -555,13 +555,16 @@ void *cleaner(void *arg)
 
             } else {
 
-                cout << "[LOG] unaval is empty" << endl;
+                cout << "Cleaner " << cleanerID << " [LOG] unaval is empty" << endl;
+
 
                 if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
                 {
                     perror("pthread mutex changeOccupiedRoom lock error occured.");
                     exit(0);
                 }
+
+                cout << "Cleaner " << cleanerID << " has mutex" << endl;
 
                 if ( occupiedRooms.empty() ) {
                     cout << "BREAKING OUT" << endl;
