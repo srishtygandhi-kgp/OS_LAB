@@ -285,18 +285,18 @@ void vacateRoom(int guestID, int currentRoom)
         }
 
         availableRooms.push(currentRoom);
-        
+        if (sem_post(&roomSemaphore) != 0)
+        {
+            perror("semaphore post error occured!");
+            exit(0);
+        }
+
         if (pthread_mutex_unlock(&aval_room) != 0)
         {
             perror("pthread mutex aval_room unlock error occured.");
             exit(0);
         }
 
-        if (sem_post(&roomSemaphore) != 0)
-        {
-            perror("semaphore post error occured!");
-            exit(0);
-        }
     }
 
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << " " << totalOccupiedSinceLastClean << "\n";
@@ -425,10 +425,10 @@ void *cleaner(void *arg)
             // getting the room to clean first
             cout << "Cleaner " << cleanerID << " gonna clean" << endl;
             
-            int val;
+            int val, currentRoom = -1;
             sem_getvalue(&roomSemaphore, &val);
 
-            cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned " << val << endl;
+            cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned " << n - val << endl;
 
             if (val == n) {
                 pthread_cond_broadcast(&cv_unaval);
@@ -443,6 +443,7 @@ void *cleaner(void *arg)
 
             // checks if it needs to wait for some
             // more unavailable rooms to come
+            /*
             while ( unavailableRooms.empty() && (val != n) ) {
                 cout << "Cleaner " << cleanerID << " : unaval size: " << unavailableRooms.size() << " : starting the wait" << endl;
                 pthread_cond_wait(&cv_unaval, &unaval_room);
@@ -454,6 +455,14 @@ void *cleaner(void *arg)
             unavailableRooms.pop();
 
             cout << "Cleaner " << cleanerID << " : popped a room" << endl;
+            */
+
+            if ( !unavailableRooms.empty() ) {
+                currentRoom = unavailableRooms.top();
+                unavailableRooms.pop();
+            }
+
+            cout << "Cleaner " << cleanerID << " inside the lock"<< endl;
 
             if (pthread_mutex_unlock(&unaval_room) != 0)
             {
@@ -464,30 +473,72 @@ void *cleaner(void *arg)
             // looking into the allrooms array and changing for
             // the given room
 
-            if (pthread_mutex_lock(&all_room) != 0)
-            {
-                perror("pthread mutex all_room lock error occured.");
-                exit(0);
+            cout << "Cleaner " << cleanerID << " right out the lock"<< endl;
+
+            if ( currentRoom != -1 ) {
+
+                cout << "Cleaner " << cleanerID << " changing"<< endl;
+
+                if (pthread_mutex_lock(&all_room) != 0)
+                {
+                    perror("pthread mutex all_room lock error occured.");
+                    exit(0);
+                }
+
+                allRooms[currentRoom].available = true;
+                allRooms[currentRoom].currentOccupant = -1;
+                allRooms[currentRoom].pastOccupants = 0;
+                time_t lived = allRooms[currentRoom].totalTimeLived;
+                allRooms[currentRoom].totalTimeLived = 0;
+
+                if (pthread_mutex_unlock(&all_room) != 0)
+                {
+                    perror("pthread mutex all_room unlock error occured.");
+                    exit(0);
+                }
+
+                cout << "Cleaner " << cleanerID << " done with allRooms"<< endl;
+
+                // availableRooms modify
+                if (pthread_mutex_lock(&aval_room) != 0)
+                {
+                    perror("pthread mutex aval_room lock error occured.");
+                    exit(0);
+                }
+
+                availableRooms.push(currentRoom);
+
+                if (pthread_mutex_unlock(&aval_room) != 0)
+                {
+                    perror("pthread mutex aval_room unlock error occured.");
+                    exit(0);
+                }
+
+                cout << "Cleaner " << cleanerID << " : modified " << lived << "|"<< currentRoom << endl;
+
+                sleep((int) lived);
+
+                if (sem_post(&roomSemaphore) != 0)
+                {
+                    perror("semaphore post error occured!");
+                    exit(0);
+                }
+
+                int val;
+                sem_getvalue(&roomSemaphore, &val);
+
+                cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned " << n - val << endl;
+
+                if (val >= n) {
+                    cout << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
+                    pthread_cond_broadcast(&cv_unaval);
+                    break;
+                }
+
             }
-
-            allRooms[currentRoom].available = true;
-            allRooms[currentRoom].currentOccupant = -1;
-            allRooms[currentRoom].pastOccupants = 0;
-            time_t lived = allRooms[currentRoom].totalTimeLived;
-            allRooms[currentRoom].totalTimeLived = 0;
-
-            if (pthread_mutex_unlock(&all_room) != 0)
-            {
-                perror("pthread mutex all_room unlock error occured.");
-                exit(0);
-            }
-
-            cout << "Cleaner " << cleanerID << " : modified " << currentRoom << endl;
-
-            sleep((int) lived);
-
-            sem_post(&roomSemaphore);
         }
+
+        cout << "Cleaner " << cleanerID << " out\n";
 
         if (pthread_mutex_lock(&changeTotalOccupied) != 0)
         {
