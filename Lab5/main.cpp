@@ -207,13 +207,11 @@ int getRoom(int guestID)
 
 void vacateRoom(int guestID, int currentRoom)
 {
-    /* vacate room will always run
     // check to make sure that an evicted guest does not attempt to vacacte the room 
     if(allRooms[currentRoom].currentOccupant != guestID)
         return;
     // cout << "vacateRoom: " << availableRooms.size() << " " << occupiedRooms.size() << " " << unavailableRooms.size() << endl;
     // remove from set
-    */
     
     if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
     {
@@ -386,7 +384,7 @@ void *guest(void *arg)
 
         if (!time_left) {
             cout << "Guest " << guestID << " : "
-                << "vacated the room : " << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
+                << "vacated the room : " << currentRoom << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
             
         } else { // printing for the ones that were sleeping at the time of eviction
 
@@ -428,7 +426,7 @@ void *cleaner(void *arg)
             int val, currentRoom = -1;
             sem_getvalue(&roomSemaphore, &val);
 
-            cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned " << n - val << endl;
+            cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned at loop start " << n - val << endl;
 
             if (val == n) {
                 pthread_cond_broadcast(&cv_unaval);
@@ -527,7 +525,7 @@ void *cleaner(void *arg)
                 int val;
                 sem_getvalue(&roomSemaphore, &val);
 
-                cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned " << n - val << endl;
+                cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned actually " << n - val << endl;
 
                 if (val >= n) {
                     cout << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
