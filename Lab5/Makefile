@@ -2,18 +2,21 @@ CC=g++
 FLAGS=-Wall
 
 build:
-	make main guest cleaner
+	make main
 .PHONY: build
 
-main: main.h main.cpp
-	$(CC) $(FLAGS) main.cpp -g -lpthread -lrt -o main
+main: main.h main.o guest.o cleaner.o
+	$(CC) $(FLAGS) guest.o cleaner.o main.o -lpthread -lrt -o main
 
-guest: guest.cpp main.h
-	$(CC) $(FLAGS) guest.cpp -o guest
+main.o: main.cpp main.h
+	$(CC) $(FLAGS) -c main.cpp -o main.o
 
-cleaner: cleaningStaff.cpp main.h
-	$(CC) $(FLAGS) cleaningStaff.cpp -o cleaner
+guest.o: guest.cpp main.h
+	$(CC) $(FLAGS) -c guest.cpp -o guest.o
+
+cleaner.o: cleaningStaff.cpp main.h
+	$(CC) $(FLAGS) -c cleaningStaff.cpp -o cleaner.o
 
 clean:
-	rm main cleaner guest *.o
+	rm main *.o
 .PHONY: clean
