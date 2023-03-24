@@ -422,11 +422,13 @@ void *cleaner(void *arg)
 
     while (1) {
 
-        int signum, did_clean;
+        int signum, did_clean = 0;
 
         // we wait here to be woken up by the signal
         while (!is_cleaning) {
+            cout << "Cleaner " << cleanerID << " waiting to get dirty" << endl;
             sigwait(&evict_set, &signum);
+            cout << "Cleaner " << cleanerID << " starting" << endl;
             
             if (signum != SIGUSR1) {
                 cout << "Cleaner " << cleanerID 
@@ -434,7 +436,7 @@ void *cleaner(void *arg)
             }
         }
 
-        while (1) {
+        //while (1) {
             // getting the room to clean first
             //cout << "Cleaner " << cleanerID << " gonna clean" << endl;
             
@@ -490,7 +492,7 @@ void *cleaner(void *arg)
 
             if ( currentRoom != -1 ) {
 
-                cout << "Cleaner " << cleanerID << " changing"<< endl;
+                //cout << "Cleaner " << cleanerID << " changing"<< endl;
 
                 if (pthread_mutex_lock(&all_room) != 0)
                 {
@@ -510,7 +512,7 @@ void *cleaner(void *arg)
                     exit(0);
                 }
 
-                cout << "Cleaner " << cleanerID << " done with allRooms"<< endl;
+                //cout << "Cleaner " << cleanerID << " done with allRooms"<< endl;
 
                 // availableRooms modify
                 if (pthread_mutex_lock(&aval_room) != 0)
@@ -541,7 +543,7 @@ void *cleaner(void *arg)
                 sem_getvalue(&roomSemaphore, &val);
 
                 cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned actually " << n - val << endl;
-                did_clean = 1;
+                did_clean += 1;
 
                 /*
                 if (val >= n) {
@@ -561,8 +563,32 @@ void *cleaner(void *arg)
 
                 if ( occupiedRooms.empty() ) {
                     cout << "BREAKING OUT" << endl;
-                    did_clean = 0;
-                    break;
+                    //break;
+
+                    if (pthread_mutex_lock(&changeTotalOccupied) != 0)
+                    {
+                        perror("pthread mutex changeTotalOccupied lock error occured.");
+                        exit(0);
+                    }
+
+                    cout << "Cleaner " << cleanerID << " exiting\n";
+
+                    is_cleaning = 0;
+                    totalOccupiedSinceLastClean = 0;
+
+                    for (int i = 0; i < y; i ++)
+                        pthread_kill(guest_thread[i], SIGUSR2);
+                        
+                    cout << "Cleaner " << cleanerID << "Signals sent\n";
+
+                    if (pthread_mutex_unlock(&changeTotalOccupied) != 0)
+                    {
+                        perror("pthread mutex changeTotalOccupied unlock error occured.");
+                        exit(0);
+                    }
+
+                } else {
+                    cout << "Work left to do" << endl;
                 }
 
                 if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
@@ -572,10 +598,11 @@ void *cleaner(void *arg)
                 }
 
             }
-        }
+        //}
 
-        cout << "Cleaner " << cleanerID << " out\n";
+        //cout << "Cleaner " << cleanerID << " out\n";
 
+        /*
         if (pthread_mutex_lock(&changeTotalOccupied) != 0)
         {
             perror("pthread mutex changeTotalOccupied lock error occured.");
@@ -589,7 +616,7 @@ void *cleaner(void *arg)
 
         // using totalOcc.. as a counter
         if (did_clean) {
-            totalOccupiedSinceLastClean ++;
+            totalOccupiedSinceLastClean += did_clean;
             cout << "Cleaner " << cleanerID << " out" << " totalOcc : " << totalOccupiedSinceLastClean << "\n";
         }
 
@@ -613,7 +640,7 @@ void *cleaner(void *arg)
             perror("pthread mutex changeTotalOccupied unlock error occured.");
             exit(0);
         }
-
+        */
     }
     return NULL;
 }
