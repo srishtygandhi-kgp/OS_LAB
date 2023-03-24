@@ -7,10 +7,10 @@
 #include <signal.h>
 #include "main.h"
 
-#define RANDOM_SLEEP_TIME_MIN 10
-#define RANDOM_SLEEP_TIME_MAX 20
-#define RANDOM_STAY_TIME_MIN 10
-#define RANDOM_STAY_TIME_MAX 30
+#define RANDOM_SLEEP_TIME_MIN 1
+#define RANDOM_SLEEP_TIME_MAX 2
+#define RANDOM_STAY_TIME_MIN 1
+#define RANDOM_STAY_TIME_MAX 3
 
 // take input x, y and n
 int x, y, n;
@@ -57,7 +57,7 @@ int getLowerPriority(int guestID) {
     }
 
     if (currentRoom != -1) {
-        cout << "Guest id " << guestID  << ", currentPriorityRoom " 
+        cout << "Guest :" << guestID  << " Room: " << currentRoom << ", currentPriorityRoom " 
                 << guestPriorities[allRooms[currentRoom].currentOccupant] 
                 << ", guest priority " << guestPriorities[guestID] << "\n";
         occupiedRooms.erase(occupiedRooms.find(currentRoom));
@@ -92,7 +92,7 @@ void allotRoom(int currentRoom, int guestID) {
     }
 
     // modifying occupiedRoom
-    // if (allRooms[currentRoom].pastOccupants++ == 0)
+    allRooms[currentRoom].pastOccupants++;
 
     if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
     {
@@ -115,10 +115,10 @@ void allotRoom(int currentRoom, int guestID) {
         exit(0);
     }
     totalOccupiedSinceLastClean++;
-    cout << "allotRoom totalOcc" << totalOccupiedSinceLastClean << endl;
+    cout << "allotRoom totalOcc:" << totalOccupiedSinceLastClean << endl;
 
     if ( totalOccupiedSinceLastClean == 2 * n ) {
-        cout << "ITS TIME" << endl;
+        cout << "ITS TIME" << " unaval rooms: " << unavailableRooms.size() << " aval rooms: " << availableRooms.size() << " occumpied: " << occupiedRooms.size() << endl;
         is_cleaning = 1;
         
         for (int i = 0; i < y; i ++)
@@ -190,7 +190,7 @@ int getRoom(int guestID)
 
             // there is no lower priority guest, hence no room
             if(currentRoom == -1) 
-                continue;
+                return currentRoom;
             
             // alloting if there is lower priority available
             allotRoom(currentRoom, guestID);
@@ -246,7 +246,7 @@ void vacateRoom(int guestID, int currentRoom)
 
     allRooms[currentRoom].available = true;
     allRooms[currentRoom].currentOccupant = -1;
-    is_usable = (allRooms[currentRoom].pastOccupants == 2);
+    is_usable = (allRooms[currentRoom].pastOccupants != 2);
 
     if (pthread_mutex_unlock(&all_room) != 0)
     {
@@ -254,7 +254,7 @@ void vacateRoom(int guestID, int currentRoom)
         exit(0);
     }
 
-    if (is_usable) {
+    if (!is_usable) {
 
         // unavailableRooms modify
 
@@ -263,6 +263,8 @@ void vacateRoom(int guestID, int currentRoom)
             perror("pthread mutex unaval_room lock error occured.");
             exit(0);
         }
+
+        cout << "Room : " << currentRoom << " unavailable\n";
 
         unavailableRooms.push(currentRoom);
         pthread_cond_broadcast(&cv_unaval);
@@ -301,7 +303,7 @@ void vacateRoom(int guestID, int currentRoom)
 }
 
 void guest_evict_handler(int signum) {
-    char msg[] = "Getting evicted!\n";
+    char msg[] = "getevicted!\n";
     write(1, msg, strlen(msg));
 }
 
@@ -329,6 +331,7 @@ void *guest(void *arg)
         while (is_cleaning) {
 
             cout << "Guest " << guestID << " waiting on cleaning" << endl;
+            pthread_cond_broadcast(&cv_unaval);
             sigwait(&clean_set, &signum);
             cout << "Guest "<< guestID << " cleaning sorted" << endl;
 
@@ -341,10 +344,14 @@ void *guest(void *arg)
         // sleeps for random time first
         int randomSleepTime = get_rand_inrange(RANDOM_SLEEP_TIME_MIN, RANDOM_SLEEP_TIME_MAX);
         cout << "Guest " << guestID << " : "
-             << "init sleeping for " << randomSleepTime << " seconds.\n";
+             << "init sleeping for " << randomSleepTime << " seconds " << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";;
         sleep(randomSleepTime);
 
         int currentRoom = getRoom(guestID);
+
+        if (currentRoom == -1)
+            continue;
+        
         cout << "Guest " << guestID << " : "
              << "got room " << currentRoom << endl;
 
@@ -353,25 +360,36 @@ void *guest(void *arg)
         if (!is_cleaning) {
             int randomStayTime = get_rand_inrange(RANDOM_STAY_TIME_MIN, RANDOM_STAY_TIME_MAX);
             cout << "Guest " << guestID << " : "
-                << "staying for " << randomStayTime << " seconds.\n";
+                << "staying for " << randomStayTime << " seconds" << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";;
             time_left = sleep(randomStayTime);
 
+            if (pthread_mutex_lock(&all_room) != 0)
+            {
+                perror("pthread mutex all_room lock error occured.");
+                exit(0);
+            }
+
             allRooms[currentRoom].totalTimeLived += randomStayTime - time_left;
+
+            if (pthread_mutex_unlock(&all_room) != 0)
+            {
+                perror("pthread mutex all_room unlock error occured.");
+                exit(0);
+            }
 
         } else { // basically the 2n'th guest will trigger this
 
             cout << "Guest " << guestID << " getting evicted!" << endl;
         }
 
+        vacateRoom(guestID, currentRoom);
+
         if (!time_left) {
-            
-            vacateRoom(guestID, currentRoom);
             cout << "Guest " << guestID << " : "
-                << "vacated the room.\n";
+                << "vacated the room : " << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
             
         } else { // printing for the ones that were sleeping at the time of eviction
-            
-            vacateRoom(guestID, currentRoom);  
+
             cout << "Guest " << guestID << " getting evicted!" << endl;
         }
     }
@@ -426,6 +444,7 @@ void *cleaner(void *arg)
             // checks if it needs to wait for some
             // more unavailable rooms to come
             while ( unavailableRooms.empty() && (val != n) ) {
+                cout << "Cleaner " << cleanerID << " : unaval size: " << unavailableRooms.size() << " : starting the wait" << endl;
                 pthread_cond_wait(&cv_unaval, &unaval_room);
                 sem_getvalue(&roomSemaphore, &val);
             }
@@ -433,6 +452,8 @@ void *cleaner(void *arg)
             // now then we will take out a room
             int currentRoom = unavailableRooms.top();
             unavailableRooms.pop();
+
+            cout << "Cleaner " << cleanerID << " : popped a room" << endl;
 
             if (pthread_mutex_unlock(&unaval_room) != 0)
             {
@@ -460,6 +481,8 @@ void *cleaner(void *arg)
                 perror("pthread mutex all_room unlock error occured.");
                 exit(0);
             }
+
+            cout << "Cleaner " << cleanerID << " : modified " << currentRoom << endl;
 
             sleep((int) lived);
 
@@ -569,9 +592,12 @@ int main()
         pthread_create(&cleaning_staff[i], &attr, cleaner, &cleaning_staff_id[i]);
     }
 
-    sigset_t old_set;
-    pthread_sigmask(SIG_BLOCK, &evict_set, &old_set);
-    pthread_sigmask(SIG_BLOCK, &clean_set, &old_set);
+    sigset_t old_set, main_set;
+    sigemptyset(&main_set);
+    sigaddset(&main_set, SIGUSR1);
+    sigaddset(&main_set, SIGUSR2);
+
+    pthread_sigmask(SIG_BLOCK, &main_set, &old_set);
 
     // wait for guest threads
     for (int i = 0; i < y; i++)
