@@ -85,14 +85,14 @@ void allotRoom(int currentRoom, int guestID) {
     allRooms[currentRoom].available = false;
     allRooms[currentRoom].currentOccupant = guestID;
 
+    // modifying occupiedRoom
+    allRooms[currentRoom].pastOccupants++;
+
     if (pthread_mutex_unlock(&all_room) != 0)
     {
         perror("pthread mutex all_room unlock error occured.");
         exit(0);
     }
-
-    // modifying occupiedRoom
-    allRooms[currentRoom].pastOccupants++;
 
     if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
     {
@@ -126,6 +126,8 @@ void allotRoom(int currentRoom, int guestID) {
         
         for (int i = 0; i < x; i ++)
             pthread_kill(cleaning_staff[i], SIGUSR1);
+        
+        cout << "doneeeeeeee" << endl;
     }
 
     if (pthread_mutex_unlock(&changeTotalOccupied) != 0)
@@ -171,7 +173,7 @@ int getRoom(int guestID)
         {
             // all occupied. need to evict
 
-            if (pthread_mutex_lock(&changeTotalOccupied) != 0)
+            if (pthread_mutex_lock(&changeOccupiedRoom) != 0)
             {
                 perror("pthread mutex changeTotalOccupied lock error occured.");
                 exit(0);
@@ -180,7 +182,7 @@ int getRoom(int guestID)
             if (occupiedRooms.empty())
                 continue;
 
-            if (pthread_mutex_unlock(&changeTotalOccupied) != 0)
+            if (pthread_mutex_unlock(&changeOccupiedRoom) != 0)
             {
                 perror("pthread mutex changeTotalOccupied unlock error occured.");
                 exit(0);
@@ -421,12 +423,12 @@ void *cleaner(void *arg)
 
         while (1) {
             // getting the room to clean first
-            cout << "Cleaner " << cleanerID << " gonna clean" << endl;
+            //cout << "Cleaner " << cleanerID << " gonna clean" << endl;
             
             int val, currentRoom = -1;
             sem_getvalue(&roomSemaphore, &val);
 
-            cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned at loop start " << n - val << endl;
+            //cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned at loop start " << n - val << endl;
 
             if (val == n) {
                 pthread_cond_broadcast(&cv_unaval);
@@ -460,7 +462,7 @@ void *cleaner(void *arg)
                 unavailableRooms.pop();
             }
 
-            cout << "Cleaner " << cleanerID << " inside the lock"<< endl;
+            //cout << "Cleaner " << cleanerID << " inside the lock"<< endl;
 
             if (pthread_mutex_unlock(&unaval_room) != 0)
             {
@@ -471,7 +473,7 @@ void *cleaner(void *arg)
             // looking into the allrooms array and changing for
             // the given room
 
-            cout << "Cleaner " << cleanerID << " right out the lock"<< endl;
+            //cout << "Cleaner " << cleanerID << " right out the lock"<< endl;
 
             if ( currentRoom != -1 ) {
 
@@ -528,7 +530,7 @@ void *cleaner(void *arg)
                 cout << "Cleaner " << cleanerID << " the number of rooms to be cleaned actually " << n - val << endl;
 
                 if (val >= n) {
-                    cout << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
+                    cout << "Cleaner " << cleanerID << "unaval: " << unavailableRooms.size() << " aval: " << availableRooms.size() << " occ: " << occupiedRooms.size() << "\n";
                     pthread_cond_broadcast(&cv_unaval);
                     break;
                 }
@@ -544,11 +546,31 @@ void *cleaner(void *arg)
             exit(0);
         }
 
-        is_cleaning = 0;
-        totalOccupiedSinceLastClean = 0;
+        cout << "Cleaner " << cleanerID << " has mutex\n";
 
-        for (int i = 0; i < y; i ++)
-            pthread_kill(guest_thread[i], SIGUSR2);
+        if (totalOccupiedSinceLastClean == 2 * n)
+            totalOccupiedSinceLastClean = 0;
+
+        // using totalOcc.. as a counter
+        totalOccupiedSinceLastClean ++;
+
+
+        cout << "Cleaner " << cleanerID << " out" << " totalOcc : " << totalOccupiedSinceLastClean << "\n";
+
+        if (totalOccupiedSinceLastClean == x) {
+            is_cleaning = 0;
+            totalOccupiedSinceLastClean = 0;
+
+            cout << "Cleaner " << cleanerID << "Last one out\n";
+
+            for (int i = 0; i < y; i ++)
+                pthread_kill(guest_thread[i], SIGUSR2);
+            
+            cout << "Cleaner " << cleanerID << "Signals sent\n";
+            
+        }
+        if (!is_cleaning)
+            continue;
 
         if (pthread_mutex_unlock(&changeTotalOccupied) != 0)
         {
