@@ -13,12 +13,12 @@
 
 using namespace std;
 
-int totalOccupiedSinceLastClean;
-int *guestPriorities;
+extern int totalOccupiedSinceLastClean;
+extern int *guestPriorities;
 
-pthread_mutex_t changeTotalOccupied, changeOccupiedRoom;
+extern pthread_mutex_t changeTotalOccupied, changeOccupiedRoom;
 
-sem_t roomSemaphore;
+extern sem_t roomSemaphore;
 
 typedef struct _room {
     bool available;
@@ -31,9 +31,9 @@ typedef struct _room {
     }
 } Room;
 
-Room* allRooms;
-stack<int> availableRooms, unavailableRooms;
-set<int> occupiedRooms; // can be evicted
+extern Room* allRooms;
+extern stack<int> availableRooms, unavailableRooms;
+extern set<int> occupiedRooms; // can be evicted
 
 #define PROP_CONST 7
 #define RANDOM_SLEEP_TIME_MIN 10
@@ -42,29 +42,30 @@ set<int> occupiedRooms; // can be evicted
 #define RANDOM_STAY_TIME_MAX 30
 
 // take input x, y and n
-int x, y, n;
+extern int x, y, n;
 
-sigjmp_buf *guest_env;
+extern sigjmp_buf *guest_env;
 
-sigset_t evict_set, clean_set;
-int is_cleaning;
-pthread_cond_t cv_unaval = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t aval_room = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t unaval_room = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t all_room = PTHREAD_MUTEX_INITIALIZER;
+extern sigset_t evict_set, clean_set;
+extern int is_cleaning;
+extern pthread_cond_t cv_unaval;
+extern pthread_mutex_t aval_room;
+extern pthread_mutex_t unaval_room;
+extern pthread_mutex_t all_room;
 
-pthread_t *guest_thread;
-pthread_t *cleaning_staff;
+extern pthread_t *guest_thread;
+extern pthread_t *cleaning_staff;
 
 int get_rand_inrange(int a, int b);
 int getLowerPriority(int guestID);
+void allotRoom(int currentRoom, int guestID);
 void allotRoom(int currentRoom, int guestID);
 int getRoom(int guestID);
 void vacateRoom(int guestID, int currentRoom);
 void guest_evict_handler(int signum);
 void cleaner_start_handler(int signum);
 void cleaner_finish_handler(int signum);
-void *guest(void *arg);
-void *cleaner(void *arg);
+extern void *guest(void *arg);
+extern void *cleaner(void *arg);
 
 #endif
