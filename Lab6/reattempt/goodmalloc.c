@@ -4,7 +4,7 @@
 
 #include "goodmalloc.h"
 
-#define MAXLEN 1024
+#define MAXLEN (1024 * 1024)
 
 typedef struct seg {
     size_t size;
@@ -43,12 +43,12 @@ void createMem(size_t msize) {
     nlist = 0;
 }
 
-void _print_symtab() {
+// void _print_symtab() {
 
-    printf("[SYMT]\n");
-    for (unsigned int i = 0; i < nlist; i ++)
-        printf("\t[LIST%u] depth:%u|addr:%ld|endaddr:%ld|size:%ld\n", i, stable[i].depth, (stable[i].lst -> root), (stable[i].lst -> root) + ((stable[i].lst -> nelems)), ((stable[i].lst -> nelems) * sizeof(Node)) );
-}
+//     printf("[SYMT]\n");
+//     for (unsigned int i = 0; i < nlist; i ++)
+//         printf("\t[LIST%u] depth:%u|addr:%ld|endaddr:%ld|size:%ld\n", i, stable[i].depth, (stable[i].lst -> root), (stable[i].lst -> root) + ((stable[i].lst -> nelems)), ((stable[i].lst -> nelems) * sizeof(Node)) );
+// }
 
 void _populate_list(List *lst, size_t nelems, void *addr) {
 
@@ -60,13 +60,12 @@ void _populate_list(List *lst, size_t nelems, void *addr) {
         // printf("[DEBUG][ITER] idx: %ld, lnode: %p, rnode: %p\n", i, lnode, rnode);
 
         Node *nd = rnode;
-        rnode = (Node *) ( nd + sizeof(Node) );
+        rnode = (Node *) ( nd + 1 );
 
         Node tmp;
         tmp.lnode = lnode; tmp.rnode = rnode; tmp.value = rand() % RANDLIM;
 
         if (i == (nelems - 1)) {
-            printf("[DEBUG] nelems null %ld|%ld\n", i, nelems);
             tmp.rnode = NULL;
         }
         memcpy((void *)nd, &tmp, sizeof(Node));
@@ -94,13 +93,13 @@ void _populate_list(List *lst, size_t nelems, void *addr) {
     (lst -> nelems) = nelems;
 }
 
-void _print_freeseg() {
+// void _print_freeseg() {
 
-    printf("[SEGMENT]\n");
-    for (int i = 0; i < nfreeseg; i ++) {
-        printf("\t[SEG%d] addr: %ld|endaddr: %ld| size: %ld\n", i, freeseg[i].addr, (freeseg[i].addr + freeseg[i].size), freeseg[i].size );
-    }
-}
+//     printf("[SEGMENT]\n");
+//     for (int i = 0; i < nfreeseg; i ++) {
+//         printf("\t[SEG%d] addr: %ld|endaddr: %ld| size: %ld\n", i, freeseg[i].addr, (freeseg[i].addr + freeseg[i].size), freeseg[i].size );
+//     }
+// }
 
 int createList(List *lst, size_t nelems) {
 
@@ -133,6 +132,8 @@ int createList(List *lst, size_t nelems) {
         return EINSUF;
     }
 
+    printf("[FUCK THIS SHIT] %d\n", idx);
+
     // printf("[DEBUG] segsize found\n");
 
     // assigning to lst
@@ -144,16 +145,16 @@ int createList(List *lst, size_t nelems) {
     stable[nlist].depth = depth;
 
     nlist ++;
-    _print_symtab();
+    // _print_symtab();
 
     // modifying or removing the current
     // segment we're taking mem from
     if (segsize > size) {
 
-        printf("[DEBUG] init %ld|taken %ld\n", segsize, size);
+        // printf("[DEBUG] init %ld|taken %ld\n", segsize, size);
         freeseg[idx].size = (segsize - size);
-        freeseg[idx].addr = (freeseg[idx].addr + size + sizeof (Node));
-        _print_freeseg();
+        freeseg[idx].addr = (freeseg[idx].addr + size);
+        // _print_freeseg();
         return SUCCESS;
     }
 
@@ -163,7 +164,7 @@ int createList(List *lst, size_t nelems) {
     
     nfreeseg --;
 
-    _print_freeseg();
+    // _print_freeseg();
     return SUCCESS;
 }
 
@@ -175,7 +176,7 @@ void _housekeep() {
     // that depth
 
     unsigned int tmpdepth = stable[nlist - 1].depth;
-    printf("[DEBUG] nlist:%u|tmp:%u|depth:%u\n", nlist, tmpdepth, depth);
+    // printf("[DEBUG] nlist:%u|tmp:%u|depth:%u\n", nlist, tmpdepth, depth);
 
     while (tmpdepth == depth) {
 
@@ -183,7 +184,7 @@ void _housekeep() {
         // using freeElem
         freeElem(stable[nlist - 1].lst);
         tmpdepth = stable[nlist - 1].depth;
-        printf("\t[DEBUG] tmp: %d, depth: %d\n", tmpdepth, depth);
+        // printf("\t[DEBUG] tmp: %d, depth: %d\n", tmpdepth, depth);
     }
 
     depth --;
