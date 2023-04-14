@@ -5,7 +5,7 @@
 #define MB (1024 * 1024)
 #define TOTAL_SIZE (MEMSIZE * MB)
 #define ui unsigned int
-#define NLST 5000
+#define NLST 50000
 
 void printList(List *lst) {
     Node *root = (lst -> root);
@@ -24,7 +24,7 @@ void merge(List *lst, ui begin, ui mid, ui end) {
     initFunc();
     
     // printf("[LOG][STC1]");
-    printList(lst);
+    // printList(lst);
     // printf("[LOG] merge(%u, %u, %u)\n", begin, mid, end);
     // if (lst->root)
     //     printf("[2nd elem] %ld\n", (lst->root)->rnode );
@@ -54,18 +54,23 @@ void merge(List *lst, ui begin, ui mid, ui end) {
 
     // printf("[LOG] starting assignment from %d\n", (troot -> value));
 
+    Node *frt = (flst.root), *srt = (slst.root);
     for (ui idx = 0; idx < (mid - begin); idx ++) {
         // extracting the value from lst
         // storing in flst
         // printf("[LOG] value to be assigned: %d\n", (troot -> value));
-        assignVal(&flst, idx, (troot -> value));
+        // assignVal(&flst, idx, (troot -> value));
+        (frt -> value) = (troot ->value);
+        frt = (frt -> rnode);
         troot = (troot -> rnode);
     }
     for (ui idx = 0; idx < (end - mid); idx ++) {
         // extracting the value from lst
         // storing in slst
         // printf("[LOG] value to be assigned: %d\n", (troot -> value));
-        assignVal(&slst, idx, (troot -> value));
+        // assignVal(&slst, idx, (troot -> value));
+        (srt -> value) = (troot ->value);
+        srt = (srt -> rnode);
         troot = (troot -> rnode);
     }
 
@@ -78,21 +83,30 @@ void merge(List *lst, ui begin, ui mid, ui end) {
     // merging 'em into lst
     ui cnt = begin;
     Node *froot = (flst.root), *sroot = (slst.root);
+    troot = (lst -> root);
+    for (ui i = 0; i < begin; i ++) {
+        // printf("[DEBUG]{LOG} %u|%d\n", i, (troot -> value));
+        troot = (troot -> rnode);
+    }
     for (; cnt < end; cnt ++) {
         if ( (froot == NULL) && (sroot == NULL) )
             break;
 
-        if (froot ==  NULL) printf("[YATIII] %u\n", cnt);        
+        // if (froot ==  NULL) printf("[YATIII] %u\n", cnt);        
         if (froot == NULL) {
-            int sval = (sroot -> value);
-            assignVal(lst, cnt, sval);
+            // int sval = (sroot -> value);
+            // assignVal(lst, cnt, sval);
+            (troot -> value) = (sroot -> value);
+            troot = (troot -> rnode);
             sroot = (sroot -> rnode);
 
             // printf("[LOG] %d, <sroot assigned to> %u\n", sval, cnt);
             continue;
         } else if (sroot == NULL) {
-            int fval = (froot -> value);
-            assignVal(lst, cnt, fval);
+            // int fval = (froot -> value);
+            // assignVal(lst, cnt, fval);
+            (troot -> value) = (froot -> value);
+            troot = (troot -> rnode);
             froot = (froot -> rnode);
 
             // printf("[LOG] %d, <froot assigned to> %u\n", fval, cnt);
@@ -103,12 +117,16 @@ void merge(List *lst, ui begin, ui mid, ui end) {
         int sval = (sroot -> value);
         
         if (fval < sval) {
-            assignVal(lst, cnt, fval);
+            // assignVal(lst, cnt, fval);
+            (troot -> value) = fval;
+            troot = (troot -> rnode);
             froot = (froot -> rnode);
 
             // printf("[LOG] %d, froot assigned to %u\n", fval, cnt);
         } else {
-            assignVal(lst, cnt, sval);
+            // assignVal(lst, cnt, sval);
+            (troot -> value) = sval;
+            troot = (troot -> rnode);
             sroot = (sroot -> rnode);
 
             // printf("[LOG] %d, sroot assigned to %u\n", sval, cnt);
