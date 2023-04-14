@@ -118,11 +118,11 @@ void log_to_file() {
     if (LOGCTL != 1)
         return;
 
-    size_t tot_mem = 0;
+    long long tot_mem = 0;
     for (unsigned int i = 0; i < nlist; i ++)
-        tot_mem += (stable[i].lst -> nelems) * sizeof(Node);
+        tot_mem += (long long) ( (stable[i].lst -> nelems) * sizeof(Node) );
 
-    fprintf(log_f, "%ld\n", tot_mem);
+    fprintf(log_f, "%lld\n", tot_mem);
 }
 
 int createList(List *lst, size_t nelems) {
