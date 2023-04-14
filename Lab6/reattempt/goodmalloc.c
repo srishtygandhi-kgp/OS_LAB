@@ -43,6 +43,13 @@ void createMem(size_t msize) {
     nlist = 0;
 }
 
+void _print_symtab() {
+
+    printf("[SYMT]\n");
+    for (unsigned int i = 0; i < nlist; i ++)
+        printf("\t[LIST%u] depth:%u|addr:%ld|endaddr:%ld|size:%ld\n", i, stable[i].depth, (stable[i].lst -> root), (stable[i].lst -> root) + ((stable[i].lst -> nelems)), ((stable[i].lst -> nelems) * sizeof(Node)) );
+}
+
 void _populate_list(List *lst, size_t nelems, void *addr) {
 
     void *bkaddr = addr;
@@ -87,6 +94,14 @@ void _populate_list(List *lst, size_t nelems, void *addr) {
     (lst -> nelems) = nelems;
 }
 
+void _print_freeseg() {
+
+    printf("[SEGMENT]\n");
+    for (int i = 0; i < nfreeseg; i ++) {
+        printf("\t[SEG%d] addr: %ld|endaddr: %ld| size: %ld\n", i, freeseg[i].addr, (freeseg[i].addr + freeseg[i].size), freeseg[i].size );
+    }
+}
+
 int createList(List *lst, size_t nelems) {
 
     // checking if there are no free segments
@@ -122,21 +137,23 @@ int createList(List *lst, size_t nelems) {
 
     // assigning to lst
     _populate_list(lst, nelems, freeseg[idx].addr);
-    
+
     // printf("[DEBUG] lst nelems %ld, adding to stable\n", nelems);
     // appending to symboltable
     stable[nlist].lst = lst;
     stable[nlist].depth = depth;
 
     nlist ++;
+    _print_symtab();
 
     // modifying or removing the current
     // segment we're taking mem from
     if (segsize > size) {
 
-        // printf("[DEBUG] left %ld\n", (segsize - size));
+        printf("[DEBUG] init %ld|taken %ld\n", segsize, size);
         freeseg[idx].size = (segsize - size);
-        freeseg[idx].addr = (freeseg[idx].addr + size);
+        freeseg[idx].addr = (freeseg[idx].addr + size + sizeof (Node));
+        _print_freeseg();
         return SUCCESS;
     }
 
@@ -146,6 +163,7 @@ int createList(List *lst, size_t nelems) {
     
     nfreeseg --;
 
+    _print_freeseg();
     return SUCCESS;
 }
 
@@ -156,16 +174,19 @@ void _housekeep() {
     // and deleting the lists with
     // that depth
 
-    unsigned int tmpdepth = stable[nlist].depth;
+    unsigned int tmpdepth = stable[nlist - 1].depth;
+    printf("[DEBUG] nlist:%u|tmp:%u|depth:%u\n", nlist, tmpdepth, depth);
 
     while (tmpdepth == depth) {
 
         // basically freeing a list
         // using freeElem
-        freeElem(stable[nlist].lst);
-        tmpdepth = stable[nlist].depth;
-        // printf("[DEBUG] tmp: %d, depth: %d\n", tmpdepth, depth);
+        freeElem(stable[nlist - 1].lst);
+        tmpdepth = stable[nlist - 1].depth;
+        printf("\t[DEBUG] tmp: %d, depth: %d\n", tmpdepth, depth);
     }
+
+    depth --;
 }
 
 int freeElem(List *lst) {

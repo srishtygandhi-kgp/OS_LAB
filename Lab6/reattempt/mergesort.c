@@ -5,7 +5,7 @@
 #define MB (1024 * 1024)
 #define TOTAL_SIZE (MEMSIZE * MB)
 #define ui unsigned int
-#define NLST 10
+#define NLST 9
 
 void printList(List *lst) {
     Node *root = (lst -> root);
@@ -22,20 +22,28 @@ void printList(List *lst) {
 
 void merge(List *lst, ui begin, ui mid, ui end) {
     initFunc();
-
+    
+    printf("[LOG][STC1]");
+    printList(lst);
     printf("[LOG] merge(%u, %u, %u)\n", begin, mid, end);
 
     ui fsize = (mid - begin), sesize = (end - mid);
 
     List flst, slst;
     createList(&flst, fsize);
-    createList(&slst, sesize);
+    printList(&flst);
 
+    printf("[LOG][STC2]");
+    printList(lst);
+    createList(&slst, sesize);
+    printList(&slst);
+
+    printf("[LOG][STC3]");
+    printList(lst);
     printf("[LOG] lists created(%u, %u, %u)\n", begin, mid, end);
 
     // assigning values to flst, and slst
     // ui idx = begin;
-    printList(lst);
     Node *troot = (lst -> root);
     for (ui i = 0; i < begin; i ++) {
         printf("[DEBUG]{LOG} %u|%d\n", i, (troot -> value));
@@ -106,7 +114,6 @@ void merge(List *lst, ui begin, ui mid, ui end) {
     }
 
     printList(lst);
-
     freeElem(NULL);
     return;
 }
