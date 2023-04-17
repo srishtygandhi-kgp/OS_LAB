@@ -1,238 +1,296 @@
-#include "goodmalloc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 
-#define NLTABLE 1
-#define NAME_INIT 10
-#define NAAME_THRESH 0.8
-#define NAME_RATIO 2
+#include "goodmalloc.h"
 
-#define CHCKMEM(MEM)                            \
-    do {                                        \
-        if (MEM == NULL) {                      \
-            printf("[ERR] memory not init\n");  \
-            return EMEMINIT;                    \
-        }                                       \
-    } while (0)
+#define MAXLEN (1024 * 1024)
+//#define LOGFILE "memfootprint.csv"
 
-#define CHCKMALLOC(MEM)                         \
-    do {                                        \
-        if (MEM == NULL) {                      \
-            printf("[ERR] malloc failed\n");    \
-            return ESYSMEM;                     \
-        }                                       \
-    } while (0)
+#define PAGE_TABLE_UPDATE "[LOG] The page table hasa new list\n"
+#define ASSIGN_VAL(OFST,VAL) "[LOG] Assigning %d to %u elemnt\n", VAL, OFST
+#define CREATE_LITS(NEL) "[LOG] Created a list with %ld elements\n", NEL
+#define FREE_ELEM "[LOG] freeElem called\n"
 
-typedef struct segment {
-    unsigned int start;
-    size_t segsize;
-    struct segment *lchld;
-    struct segment *rchld;
-    struct segment *parent;
-} Segment;
+FILE *log_f;
 
-typedef struct ltable {
-    char **lnames;
-    unsigned int nlist;         /*!< the number of lists init*/
+typedef struct seg {
+    size_t size;
+    void *addr;
+} segment;
+
+typedef struct symtable {
+    List *lst;
     unsigned int depth;
-} LTable;
+} sentry;
 
-typedef struct mem {
-    Segment * root;              /*!< tracks the free segments*/
-    void * addr;
-    size_t memsize;
-    LTable * ltable;
-    size_t depth;                /*!< currenr */
-} Mem;
+// Data-structures for memory
+segment freeseg[MAXLEN];
+sentry stable[MAXLEN];
 
-/*****Global Vars*****/
+size_t tot_mem;
+unsigned int depth;
+unsigned int nfreeseg;
+unsigned int nlist;
 
-static Mem *progmem = (Mem *) NULL;                 /*!< System mem before allocating*/
-static int depth = 0;
+void createMem(size_t msize) {
 
-int createMem(size_t memsize) {
-
-    if (progmem != NULL) {
-        printf("[ERR] Mem already initialized");
-        return EMEMEXIST;
+    if (nfreeseg != 0) {
+        printf("[ERROR] memory already initialized, exiting\n");
+        exit(EXIT_FAILURE);
     }
 
-    // init depth
+    tot_mem = msize;
+
+    log_f = fopen(LOGFILE, "w");
+    memset(freeseg, -1, MAXLEN * sizeof (segment));
+
+    // first element set
+    freeseg[0].addr = malloc(msize);
+    freeseg[0].size = msize;
+
+    // updated the index of the array
+    nfreeseg = 1;
     depth = 1;
-
-    // allocating the memory using malloc
-    Mem * mem = (Mem *) malloc (sizeof(Mem));
-    CHCKMALLOC(mem);
-    
-    (mem -> memsize) = memsize;
-    
-    LTable *lt = (mem -> ltable) = (LTable *) malloc (sizeof(LTable));
-    CHCKMALLOC(mem -> ltable);
-
-    (lt[0].lnames) = NULL;
-    (lt[0].nlist) = 0;
-    (lt[0].depth) = 0;
-
-    (mem -> depth) = depth;
-
-    (mem -> addr) = malloc (memsize);
-    CHCKMALLOC(mem -> addr);
-    
-    (mem -> root) = (Segment *) malloc (sizeof(Segment));
-    CHCKMALLOC(mem -> root);
-    
-    (mem -> root) -> start = (mem -> addr); (mem -> root) -> segsize = memsize;
-    (mem -> root) -> lchld = NULL; (mem -> root) -> rchld = NULL; (mem -> root) -> parent = NULL;
-
-    // assigning to progmem
-    progmem = mem;
-
-    return 0;
+    nlist = 0;
 }
 
-void initFunc() {
-    int idx = (progmem -> depth) ++;
-    
-    LTable *lt = (progmem -> ltable) = (LTable *) reallocarray( (progmem -> ltable), (progmem -> depth), sizeof(LTable) );
-    CHCKMALLOC(lt);
+// void _print_symtab() {
 
-    (lt[idx].lnames) = NULL;
-    (lt[idx].nlist) = 0;
-    (lt[idx].depth) = idx + 1;
-}
+//     printf("[SYMT]\n");
+//     for (unsigned int i = 0; i < nlist; i ++)
+//         printf("\t[LIST%u] depth:%u|addr:%ld|endaddr:%ld|size:%ld\n", i, stable[i].depth, (stable[i].lst -> root), (stable[i].lst -> root) + ((stable[i].lst -> nelems)), ((stable[i].lst -> nelems) * sizeof(Node)) );
+// }
 
-static int findFit (size_t size, Segment *root) {
-    
-    if (size > (root -> segsize) )
-        return (root -> start);
-    else {
-        if ( (root -> rchld) == NULL )
-            return ENOMEM;
-        else
-            return findFit (size, (root -> rchld) );
+void _populate_list(List *lst, size_t nelems, void *addr) {
+
+    void *bkaddr = addr;
+    Node *lnode = NULL, *rnode = (Node *) ( addr );
+
+    for (size_t i = 0; i < nelems; i ++) {
+
+        // printf("[DEBUG][ITER] idx: %ld, lnode: %p, rnode: %p\n", i, lnode, rnode);
+
+        Node *nd = rnode;
+        rnode = (Node *) ( nd + 1 );
+
+        Node tmp;
+        tmp.lnode = lnode; tmp.rnode = rnode; tmp.value = rand() % RANDLIM;
+
+        if (i == (nelems - 1)) {
+            tmp.rnode = NULL;
+        }
+        memcpy((void *)nd, &tmp, sizeof(Node));
+        // if (i == (nelems - 1)) rnode = NULL;
+
+        // printf("[DEBUG][ITER] addr: %p\n", nd);
+
+        // (nd -> lnode) = lnode;
+
+        // printf("[DEBUG][ITER] lnode done\n");
+        // (nd -> rnode) = rnode;
+
+        // printf("[DEBUG][ITER] rnode done\n");
+        // (nd -> value) = rand() % RANDLIM;
+
+        // printf("[DEBUG][ITER] curr-node done\n");
+
+        // iterating to next node
+        lnode = nd;
+
+        // printf("[DEBUG][ITER] done\n");
     }
+    
+    (lst -> root) = (Node *) bkaddr;
+    (lst -> nelems) = nelems;
 }
 
-// static Node *findNode (size_t size, unsigned int start, Node *root) {
+// void _print_freeseg() {
 
-//     if ( root == NULL )
-//         return NULL;
-//     else if ( size == (root -> size) && start == (root -> start) )
-//         return root;
-//     else if ( size > (root -> size) )
-//         return findFit (size, (root -> lchld) );
-//     else 
-//         return findFit (size, (root -> rchld) );
-// }
-
-// static void transplant(Segment *u, Segment *v) {
-
-//     if (u -> parent) == NULL
-//         (progmem -> root) = v;
-//     else ( ( (u -> parent) -> lchld ) == u )
-//         ( (u -> parent) -> lchld ) = v;
-//     else
-//         ( (u -> parent) -> rchld ) = v;
-    
-//     if (v != NULL)
-//         (v -> parent) = (u -> parent);
-// }
-
-// static void removeNode(Segment *node) {
-
-//     if ( (node -> lchld) == NULL )
-//         transplant(node, (node -> rchld));
-//     else if ( (node -> rchld) == NULL )
-//         transplant(node, (node -> lchld));
-//     else {
-//         // TODO
+//     printf("[SEGMENT]\n");
+//     for (int i = 0; i < nfreeseg; i ++) {
+//         printf("\t[SEG%d] addr: %ld|endaddr: %ld| size: %ld\n", i, freeseg[i].addr, (freeseg[i].addr + freeseg[i].size), freeseg[i].size );
 //     }
 // }
 
-static Segment *minNode(Segment *node) {
-    Segment *curr = node;
+void log_to_file() {
 
-    while (curr -> lchld)
-        curr = (curr -> lchld);
-    
-    return curr;
+    if (LOGCTL != 1)
+        return;
+
+    long long tot_mem = 0;
+    for (unsigned int i = 0; i < nlist; i ++)
+        tot_mem += (long long) ( (stable[i].lst -> nelems) * sizeof(Node) );
+
+    fprintf(log_f, "%lld\n", tot_mem);
 }
 
-static Segment * deleteNode (Segment * root, size_t size, unsigned int start) {
+int createList(List *lst, size_t nelems) {
 
-    if ( root == NULL )
-        return root;
+    printf(CREATE_LITS(nelems));
 
-    if ( size < (root -> segsize) )
-        (root -> lchld) = deleteNode ((root -> lchld), start, size);
-    else if ( size > (root -> segsize) )
-        (root -> rchld) = deleteNode ((root -> rchld), size, start);
-    else {
+    // checking if there are no free segments
+    if (nfreeseg == 0)
+        return ENOMEM;
 
-        Segment *tmp;
+    // printf("[DEBUG] start\n");
 
-        if ( (root -> lchld) == NULL ) {
-            tmp = (root -> rchld);
-            (progmem -> root) = NULL;
-            return tmp;
-        } else if ( (root -> rchld) == NULL ) {
-            tmp = (root -> lchld);
-            (progmem -> root) = NULL;
-            return tmp;
+    // local variables initializing
+    int idx = 0;
+    size_t size = nelems * sizeof (Node), segsize = 0;
+
+    // finding the first fit segment
+    for (; idx < nfreeseg; idx ++) {
+
+        // checking if the current segment
+        // is up to the mark
+        if (freeseg[idx].size < size) continue;
+
+        // if the segment is actually useful
+        segsize = freeseg[idx].size;
+        break;
+    }
+
+    // checking if no segment of size
+    // was found
+    if (segsize == 0) {
+        printf("[ERR] insufficient mem\n");
+        return EINSUF;
+    }
+
+    // printf("[DEBUG] segsize found\n");
+
+    // assigning to lst
+    _populate_list(lst, nelems, freeseg[idx].addr);
+
+    // printf("[DEBUG] lst nelems %ld, adding to stable\n", nelems);
+    // appending to symboltable
+    stable[nlist].lst = lst;
+    stable[nlist].depth = depth;
+
+    nlist ++;
+    // _print_symtab();
+
+    // modifying or removing the current
+    // segment we're taking mem from
+    if (segsize > size) {
+
+        // printf("[DEBUG] init %ld|taken %ld\n", segsize, size);
+        freeseg[idx].size = (segsize - size);
+        freeseg[idx].addr = (freeseg[idx].addr + size);
+        // _print_freeseg();
+        log_to_file();
+        return SUCCESS;
+    }
+
+    // if the free element got empty
+    for (int i = idx; i < (nfreeseg - 1); i ++)
+        freeseg[i] = freeseg[i + 1];
+    
+    nfreeseg --;
+
+    log_to_file();
+    // _print_freeseg();
+    return SUCCESS;
+}
+
+void _housekeep() {
+
+    // printf("[DEBUG] housekeep\n");
+    // checking the current depth
+    // and deleting the lists with
+    // that depth
+
+    unsigned int tmpdepth = stable[nlist - 1].depth;
+    // printf("[DEBUG] nlist:%u|tmp:%u|depth:%u\n", nlist, tmpdepth, depth);
+
+    while (tmpdepth == depth) {
+
+        // basically freeing a list
+        // using freeElem
+        freeElem(stable[nlist - 1].lst);
+        tmpdepth = stable[nlist - 1].depth;
+        // printf("\t[DEBUG] tmp: %d, depth: %d\n", tmpdepth, depth);
+    }
+
+    depth --;
+}
+
+int freeElem(List *lst) {
+
+    if (NOFREE)
+        return -1;
+
+    printf(FREE_ELEM);
+
+    if (lst == NULL) {
+
+        if (depth == 1)
+            fclose(log_f);
+        _housekeep();
+        return SUCCESS;
+    }
+
+    // adding a free segment to the
+    // global array
+    if (nfreeseg == MAXLEN) {
+        printf("[ERR] system memory out\n");
+        return ELIBMEM;
+    }
+
+    int idx; int flag = 0;
+    for (idx = 0; idx < (int) nlist; idx ++) {
+        if (stable[idx].lst == lst) {
+            flag = 1;
+            break;
         }
-
-        tmp = minNode(root -> rchld);
-        (root -> segsize) = (tmp -> segsize);
-        (root -> start) = (tmp -> start);
-
-        (root -> rchld) = deleteNode((root -> rchld), (tmp -> segsize), (tmp -> start));
-    }
-}
-
-static void insertNode (unsigned int start, size_t size, Segment *root) {
-
-    Segment *troot = root;
-    Segment *it = NULL;
-
-    while (troot != NULL) {
-
-        it = troot;
-        if (size < (troot -> segsize) )
-            troot = (troot -> lchld);
-        else
-            troot = (troot -> rchld);
     }
 
-    Segment *inseg = (Segment *) malloc (sizeof(Segment));
+    if (flag == 0) {
+        printf("[ERR] list not present in symboltable\n");
+        return ENOLST;
+    }
+
+    for (int i = idx; i < (nlist - 1); i ++)
+        stable[idx] = stable[idx + 1];
     
-    (inseg -> start) = start;
-    (inseg -> segsize) = size;
-    (inseg -> rchld) = NULL;
-    (inseg -> lchld) = NULL;
-    (inseg -> parent) = it;
+    nlist --;
 
-    if ( it == NULL )
-        root = inseg;
-    else if ( (inseg -> segsize) < (it -> segsize) )
-        (it -> lchld) = inseg;
-    else
-        (it -> rchld) = inseg;
+    freeseg[nfreeseg].addr = (lst -> root);
+    freeseg[nfreeseg].size = (lst -> nelems) * sizeof(Node);
+
+    nfreeseg ++;
+
+    return SUCCESS;
 }
 
-static void * allocChunk (size_t size) {
-
-    CHCKMEM(progmem);
-
-    Segment *root = (progmem -> root);
-    int offset = findFit(size, root);
-
-    if ( offset == ENOMEM )
-        return NULL;
+void initFunc() {
+    depth ++;
 }
 
-List *createList (size_t nelems, char *lname) {
+int assignVal(List *lst, unsigned int offset , int val) {
 
-    CHCKMEM(progmem);
+    printf(ASSIGN_VAL(offset, val));
+
+    int flag = 0;
+
+    for (unsigned int idx = 0; idx < nlist; idx ++) {
+        if (stable[idx].lst == lst) {
+            flag = 1;
+            break;
+        }
+    }
+
+    if (flag == 0) {
+        printf("[ERR] list not present in symboltable\n");
+        return ENOLST;
+    }
+
+    Node *tmpnode = (lst -> root);
+    for (unsigned int i = 0; i < offset; i ++)
+        tmpnode = (tmpnode -> rnode);
+    
+    (tmpnode -> value) = val;
+
+    return SUCCESS;
 }

@@ -5,6 +5,14 @@
 #include "goodmalloc.h"
 
 #define MAXLEN (1024 * 1024)
+//#define LOGFILE "memfootprint.csv"
+
+#define PAGE_TABLE_UPDATE "[LOG] The page table hasa new list\n"
+#define ASSIGN_VAL(OFST,VAL) "[LOG] Assigning %d to %u elemnt\n", VAL, OFST
+#define CREATE_LITS(NEL) "[LOG] Created a list with %ld elements\n", NEL
+#define FREE_ELEM "[LOG] freeElem called\n"
+
+FILE *log_f;
 
 typedef struct seg {
     size_t size;
@@ -20,6 +28,7 @@ typedef struct symtable {
 segment freeseg[MAXLEN];
 sentry stable[MAXLEN];
 
+size_t tot_mem;
 unsigned int depth;
 unsigned int nfreeseg;
 unsigned int nlist;
@@ -31,6 +40,9 @@ void createMem(size_t msize) {
         exit(EXIT_FAILURE);
     }
 
+    tot_mem = msize;
+
+    log_f = fopen(LOGFILE, "w");
     memset(freeseg, -1, MAXLEN * sizeof (segment));
 
     // first element set
@@ -101,7 +113,21 @@ void _populate_list(List *lst, size_t nelems, void *addr) {
 //     }
 // }
 
+void log_to_file() {
+
+    if (LOGCTL != 1)
+        return;
+
+    size_t tot_mem = 0;
+    for (unsigned int i = 0; i < nlist; i ++)
+        tot_mem += (stable[i].lst -> nelems) * sizeof(Node);
+
+    fprintf(log_f, "%ld\n", tot_mem);
+}
+
 int createList(List *lst, size_t nelems) {
+
+    printf(CREATE_LITS(nelems));
 
     // checking if there are no free segments
     if (nfreeseg == 0)
@@ -153,6 +179,7 @@ int createList(List *lst, size_t nelems) {
         freeseg[idx].size = (segsize - size);
         freeseg[idx].addr = (freeseg[idx].addr + size);
         // _print_freeseg();
+        log_to_file();
         return SUCCESS;
     }
 
@@ -162,6 +189,7 @@ int createList(List *lst, size_t nelems) {
     
     nfreeseg --;
 
+    log_to_file();
     // _print_freeseg();
     return SUCCESS;
 }
@@ -190,7 +218,15 @@ void _housekeep() {
 
 int freeElem(List *lst) {
 
+    if (NOFREE)
+        return -1;
+
+    printf(FREE_ELEM);
+
     if (lst == NULL) {
+
+        if (depth == 1)
+            fclose(log_f);
         _housekeep();
         return SUCCESS;
     }
@@ -233,6 +269,8 @@ void initFunc() {
 }
 
 int assignVal(List *lst, unsigned int offset , int val) {
+
+    printf(ASSIGN_VAL(offset, val));
 
     int flag = 0;
 

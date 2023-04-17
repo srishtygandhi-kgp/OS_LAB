@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 enum ERR {
     ENOMEM = -15
@@ -8,8 +9,11 @@ enum ERR {
     , ENOLST
 };
 
+#define LOGFILE "memfoot_nf.csv"
 #define SUCCESS 0
 #define RANDLIM 100001
+#define LOGCTL 0
+#define NOFREE 0
 
 typedef struct node {
     struct node * lnode;
